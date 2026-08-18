@@ -1,4 +1,4 @@
-# Bot GHL — plantilla propia de Aura Studio
+# Bot GHL — plantilla propia de Sellers Studio
 
 Bot de WhatsApp conectado a Go High Level (GHL), construido sobre Claude.
 
