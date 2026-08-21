@@ -18,7 +18,10 @@ bot:
   # propio de persona, para no confundir con Karime (la asistente humana).
   name: Asistente Virtual
 
-  welcome_message: "Hola! Gusto en saludarla, le escribe la asistente virtual del Dr. Romero. Cuéntenos de qué manera la podemos apoyar."
+  # Neutral a propósito (no asume género): el saludo inicial nunca sabe
+  # todavía si escribe una mujer o un hombre. Ver <lenguaje_y_genero> en
+  # prompt.md para cuándo y cómo cambiar a "la"/"el" después de esto.
+  welcome_message: "Hola, gracias por escribir. Le escribe la asistente virtual del Dr. Romero. Cuéntenos en qué le podemos ayudar."
 
 business:
   name: Dr. Héctor Hugo Romero Garza — Romero Cirugía Plástica
