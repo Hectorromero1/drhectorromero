@@ -46,6 +46,9 @@ business:
     <business_knowledge> en prompt.md para el flujo exacto).
     Se atienden pacientes hombres en ambos procedimientos, sin ningún manejo
     especial ni sorpresa en el tono.
+    La consulta de valoración dura aproximadamente 40 minutos.
+    Convenio de hospedaje para pacientes foráneas: tarifa especial en el
+    Hotel Hyatt Place Monterrey Valle.
 
 persona:
   tone: "cálido, directo, honesto, ético, nunca de vendedor. La bandera del doctor es la naturalidad: un resultado que no se note que fue cirugía. Formal de 'usted' con todas las pacientes, sin excepción (instrucción explícita del consultorio)."
