@@ -185,4 +185,4 @@ custom_fields:
       when: "Cuando la paciente mencione cómo se enteró del consultorio (si fue red social, especifica cuál)."
     - id: zBaLsSgeJWt8iiwx5A9f
       name: Preferencia de horario y días
-      when: "Cuando la paciente diga qué días u horarios le acomodan mejor para su consulta, para que Karime no tenga que volver a preguntarlo."
+      when: "Cuando la paciente diga qué días u horarios le acomodan mejor para su consulta, para que Karime no tenga que volver a preguntarlo. Guarda exactamente lo que diga aunque la fecha no parezca válida (ej. un día que no existe en ese mes), no lo cuestiones ni pidas que lo corrija, eso lo resuelve Karime directamente."
