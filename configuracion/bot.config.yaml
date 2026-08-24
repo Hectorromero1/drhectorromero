@@ -146,6 +146,58 @@ escalation:
 # Campos personalizados
 # ===========================================================================
 
+# ===========================================================================
+# Datos que se repiten en varios puntos del prompt — viven aquí una sola vez
+# para no desincronizarse (ej. si cambia el precio o el horario, se edita
+# solo aquí, no hay que buscar en todo prompt.md).
+# ===========================================================================
+
+offer:
+  price_consulta: "$1,200 MXN"
+  duracion_consulta: "aproximadamente 40 minutos"
+
+schedule:
+  weekdays: "lunes a viernes 9am-7pm"
+  saturday: "sábado 9am-3pm"
+
+doctor:
+  cedula: "9048864"
+  certificacion: "Consejo Mexicano de Cirugía Plástica, Estética y Reconstructiva (CMCPER) No. 2557"
+
+payment_methods: "transferencia bancaria (Bancomer/BBVA), PayPal, tarjeta de crédito/débito, efectivo, y financiamiento con Mend Pay"
+
+lodging: "Hotel Hyatt Place Monterrey Valle (tarifa especial para pacientes foráneas)"
+
+video_resources:
+  - topic: "Abdominoplastia, tamaño de la cicatriz"
+    url: "https://www.instagram.com/reel/DAZj-79SvKB/?igsh=b21teHBybWNhMDV4"
+  - topic: "Recuperación de rejuvenecimiento facial"
+    url: "https://www.instagram.com/reel/DAFB95ySh8s/?igsh=OHJqZ3JrMDR3MmRz"
+  - topic: "Ruptura de implante"
+    url: "https://www.instagram.com/reel/DBxJqoJyEoV/?igsh=c2hwdzl0bmZ6ZTV0"
+  - topic: "Mommy makeover, información general"
+    url: "https://www.instagram.com/reel/DFtktjXxSH6/?igsh=ZXF4b3E4ZmVvaTNl"
+  - topic: "Lipectomía de cuello o lipopapada"
+    url: "https://www.instagram.com/reel/DGWMFpFR4mp/?igsh=bHJjOGc1YW14cjlv"
+  - topic: "Levantamiento o reducción de busto"
+    url: "https://www.instagram.com/reel/DIg_K86RLLD/?igsh=ZGV0MXpua2JmNmd4"
+  - topic: "Aumento de busto y lactancia materna"
+    url: "https://www.instagram.com/reel/DLV20IgJBNP/?igsh=MXM1MGE4cHVuZW9jdw=="
+  - topic: "Quién es candidata a liposucción o abdominoplastia"
+    url: "https://www.instagram.com/reel/DLlU1muK5Wx/?igsh=MWd0b2tic2ZmMW85Zg=="
+  - topic: "Edad para el rejuvenecimiento facial"
+    url: "https://www.instagram.com/reel/DMrJRWeRqVZ/?igsh=cHh3MHluOWw3c240"
+  - topic: "Fibrosis en cirugías"
+    url: "https://www.instagram.com/reel/DPpVUwkiSzo/?igsh=MXR0YXVqYm1hcjJwaA=="
+  - topic: "Cuidados postoperatorios del aumento de busto"
+    url: "https://www.instagram.com/reel/DQM4ujqDszX/?igsh=MTQ4bXM4dDc3enV4aA=="
+  - topic: "Recomendación de una mastopexia con implantes"
+    url: "https://www.instagram.com/reel/DQpIprBDPWq/?igsh=dG00aW5rcHF6cjVz"
+  - topic: "Postoperatorio de cirugías en general"
+    url: "https://www.instagram.com/reel/DZsa6_hRhRt/?igsh=MXgzM2NmMnpjcDkzYg=="
+  - topic: "Información para pacientes foráneas"
+    url: "https://www.instagram.com/reel/DcKkH9cRHZQ/?igsh=MWMyeXp0N2ppMTM5aA=="
+
 custom_fields:
   # Lista basada en la ficha real que pidió el consultorio (Bloque B del
   # cuestionario) — es lo mínimo que Karime necesita para tomar el caso sin

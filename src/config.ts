@@ -137,6 +137,31 @@ const EscalationSchema = z.object({
   stage: z.string().optional(),
 });
 
+// Datos de la oferta de entrada (la cita de valoración) — se repiten en varios
+// puntos del prompt, viven aquí una sola vez para no desincronizarse.
+const OfferSchema = z.object({
+  price_consulta: z.string().min(1),
+  duracion_consulta: z.string().min(1),
+});
+
+// Horario de atención, en dos formatos: uno compacto para menciones
+// casuales en la conversación, y el texto largo aprobado por el consultorio
+// vive aparte, tal cual, dentro del script de fuera de horario en prompt.md.
+const ScheduleSchema = z.object({
+  weekdays: z.string().min(1),
+  saturday: z.string().min(1),
+});
+
+const DoctorSchema = z.object({
+  cedula: z.string().min(1),
+  certificacion: z.string().min(1),
+});
+
+const VideoResourceSchema = z.object({
+  topic: z.string().min(1),
+  url: z.string().min(1),
+});
+
 const ConfigSchema = z.object({
   bot: z.object({
     name: z.string().min(1),
@@ -174,6 +199,12 @@ const ConfigSchema = z.object({
   follow_ups: FollowUpsSchema.optional(),
   escalation: EscalationSchema.optional(),
   custom_fields: CustomFieldsSchema.optional(),
+  offer: OfferSchema.optional(),
+  schedule: ScheduleSchema.optional(),
+  doctor: DoctorSchema.optional(),
+  payment_methods: z.string().optional(),
+  lodging: z.string().optional(),
+  video_resources: z.array(VideoResourceSchema).optional(),
 });
 
 export type BotConfig = z.infer<typeof ConfigSchema>;
