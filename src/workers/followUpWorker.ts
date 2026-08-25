@@ -28,7 +28,15 @@ import {
   MARK_LOST_QUEUE,
   HOUR_MS,
   clampToWindow,
+  cancelarFollowUpsPendientes,
 } from '../services/follow-up';
+
+/** Sentinel que Claude devuelve cuando detecta que el contacto no es un
+ * cliente/paciente real (proveedor, spam, número equivocado) — ver el
+ * prompt en generateFollowUpMessage (services/claude.ts). Sin esto, el
+ * modelo generaba su propio análisis ("esto no es un cliente, no hay
+ * seguimiento que hacer") y el código lo mandaba tal cual por WhatsApp. */
+const NO_FOLLOW_UP_SENTINEL = 'NO_FOLLOW_UP';
 
 interface FollowUpJobData {
   contactId: string;
@@ -201,6 +209,12 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
   } catch (e) {
     console.warn(`[follow-up] generación contextual falló, uso respaldo del yaml: ${(e as Error).message}`);
     text = renderFollowUpMessage(template, contact_name ?? null);
+  }
+
+  if (text.trim() === NO_FOLLOW_UP_SENTINEL) {
+    console.log(`[follow-up] contacto no parece ser un paciente real, se cancela el seguimiento | contact=${contactId}`);
+    await cancelarFollowUpsPendientes(contactId);
+    return;
   }
 
   if (!text) {
