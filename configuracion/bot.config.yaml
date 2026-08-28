@@ -160,6 +160,33 @@ schedule:
   weekdays: "lunes a viernes 9am-7pm"
   saturday: "sábado 9am-3pm"
 
+  # El MISMO horario de arriba, pero en formato que el código puede leer para
+  # calcular si en este preciso momento el consultorio está abierto, por
+  # cerrar o cerrado, y decírselo al bot en cada mensaje.
+  #
+  # Para qué sirve: el modelo no tiene reloj. Sin esto solo sabía la fecha, no
+  # la hora, y llegaba a prometer "la contactamos dentro de media hora" a las
+  # 19:58, cuando ya nadie iba a atender. Con esto el bot recibe el estado ya
+  # calculado y solo lo obedece (ver escalar_a_humano en prompt.md).
+  #
+  # IMPORTANTE: si cambia el horario del consultorio, hay que actualizarlo en
+  # LOS TRES lugares: weekdays/saturday de aquí arriba, days de aquí abajo, y
+  # el texto literal del mensaje de fuera de horario en prompt.md.
+  business_hours:
+    timezone: America/Mexico_City
+    # Minutos antes del cierre en los que ya NO se le puede prometer a la
+    # paciente que la contactan "dentro de la próxima media hora".
+    closing_soon_minutes: 30
+    # Día → [apertura, cierre] en formato de 24 horas.
+    # Domingo se omite a propósito: no se atiende.
+    days:
+      mon: ["09:00", "19:00"]
+      tue: ["09:00", "19:00"]
+      wed: ["09:00", "19:00"]
+      thu: ["09:00", "19:00"]
+      fri: ["09:00", "19:00"]
+      sat: ["09:00", "15:00"]
+
 doctor:
   cedula: "9048864"
   certificacion: "Consejo Mexicano de Cirugía Plástica, Estética y Reconstructiva (CMCPER) No. 2557"
@@ -210,7 +237,7 @@ custom_fields:
       when: "En cuanto la paciente diga su nombre completo. Si solo da su nombre de pila, guarda lo que tengas y actualízalo si después da el apellido."
     - id: bGJYZqTt5dzHHw49GkvM
       name: Procedimiento de interés
-      when: "Cuando el contacto deje claro si le interesa rejuvenecimiento facial o levantamiento de busto (o ambos)."
+      when: "Cuando el contacto deje claro qué procedimiento le interesa: rejuvenecimiento facial, levantamiento de busto, ambos, o cualquier otro de los que hace el doctor (liposucción, abdominoplastia, mommy makeover, rellenos, Botox, etc.). Si es lipectomía, guarda SIEMPRE la zona, 'lipectomía de cuello' o 'lipectomía de abdomen', nunca 'lipectomía' a secas, para que Karime no tenga que volver a preguntarlo."
     - id: CUBYVyKyNw2sQsEH4z8H
       name: Motivo de consulta
       when: "Cuando la paciente cuente qué le gustaría lograr o mejorar, con sus propias palabras."

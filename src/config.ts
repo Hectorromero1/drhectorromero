@@ -144,12 +144,43 @@ const OfferSchema = z.object({
   duracion_consulta: z.string().min(1),
 });
 
-// Horario de atención, en dos formatos: uno compacto para menciones
-// casuales en la conversación, y el texto largo aprobado por el consultorio
-// vive aparte, tal cual, dentro del script de fuera de horario en prompt.md.
+// Horario en formato que el CÓDIGO puede leer (no solo el humano), para
+// calcular si en este preciso momento el negocio está abierto, por cerrar o
+// cerrado, y pasárselo al modelo. Sin esto el modelo solo recibe la fecha,
+// nunca la hora, y no tiene forma de saber que ya cerraron: por eso llegaba a
+// prometer "la contactamos en 30 minutos" a las 19:58.
+// Es opcional: si un cliente no lo define, el bot se comporta como antes.
+const HHMM = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'usa formato HH:MM de 24 horas, ej. "09:00" o "19:00"');
+
+const BusinessHoursSchema = z
+  .object({
+    timezone: z.string().default('America/Bogota'),
+    // A partir de cuántos minutos antes del cierre ya se considera que NO da
+    // tiempo de atender a la persona hoy (estado "por cerrar").
+    closing_soon_minutes: z.number().int().nonnegative().default(30),
+    // Día de la semana → [hora de apertura, hora de cierre].
+    // Un día que no aparezca en la lista se considera cerrado todo el día.
+    days: z.record(
+      z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']),
+      z.tuple([HHMM, HHMM])
+    ),
+  })
+  .strict()
+  .refine(
+    (h) => Object.values(h.days).every((r) => !r || r[0] < r[1]),
+    { message: 'schedule.business_hours: la hora de apertura debe ser menor que la de cierre' }
+  );
+
+// Horario de atención, en tres formatos: dos compactos para menciones
+// casuales en la conversación (weekdays/saturday), el legible por código
+// (business_hours), y el texto largo aprobado por el consultorio que vive
+// aparte, tal cual, dentro del script de fuera de horario en prompt.md.
 const ScheduleSchema = z.object({
   weekdays: z.string().min(1),
   saturday: z.string().min(1),
+  business_hours: BusinessHoursSchema.optional(),
 });
 
 const DoctorSchema = z.object({
@@ -214,6 +245,7 @@ export type CalendarsConfig = z.infer<typeof CalendarsSchema>;
 export type FollowUpsConfig = z.infer<typeof FollowUpsSchema>;
 export type EscalationConfig = z.infer<typeof EscalationSchema>;
 export type CustomFieldsConfig = z.infer<typeof CustomFieldsSchema>;
+export type BusinessHoursConfig = z.infer<typeof BusinessHoursSchema>;
 
 let cachedConfig: BotConfig | null = null;
 let cachedPrompt: string | null = null;

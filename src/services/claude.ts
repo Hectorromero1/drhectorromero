@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ChatMessage, GhlChannel } from '../types';
 import { buildSystemPrompt } from '../prompts/system';
-import { getConfig } from '../config';
+import { getConfig, BotConfig } from '../config';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -222,13 +222,27 @@ function buildTools(): Anthropic.Tool[] {
 export const TOOLS: Anthropic.Tool[] = buildTools();
 
 /**
- * Genera contexto temporal (hoy + día de la semana) en la timezone del negocio.
- * Se mete como bloque system NO cacheado — cambia cada día y rompería el cache.
- * Solo se agrega si hay calendars o follow_ups (que son quienes razonan fechas).
+ * Genera contexto temporal (fecha, día de la semana Y hora actual) en la
+ * timezone del negocio, más el estado de atención calculado en código.
+ *
+ * Se mete como bloque system NO cacheado — cambia a cada rato y rompería el
+ * cache.
+ *
+ * OJO (por qué existe el estado calculado): el modelo NO tiene reloj. Antes
+ * este bloque solo mandaba la fecha, así que el bot no tenía forma de saber
+ * si el consultorio ya había cerrado y terminaba prometiendo "la contactamos
+ * en 30 minutos" a las 19:58, cuando ya nadie iba a atender. El cálculo de
+ * abierto/por cerrar/cerrado se hace aquí, en código, y el modelo solo
+ * obedece el resultado — no se le pide que razone la hora él solo.
  */
 function getDateContext(): string {
   const cfg = getConfig();
-  const tz = cfg.calendars?.timezone ?? cfg.follow_ups?.timezone ?? 'America/Bogota';
+  const hours = cfg.schedule?.business_hours;
+  const tz =
+    hours?.timezone ??
+    cfg.calendars?.timezone ??
+    cfg.follow_ups?.timezone ??
+    'America/Bogota';
   const now = new Date();
   const human = new Intl.DateTimeFormat('es', {
     timeZone: tz,
@@ -243,7 +257,91 @@ function getDateContext(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(now);
-  return `<contexto_temporal>\nHoy es ${human} (${iso}). Timezone del negocio: ${tz}.\nCuando el contacto diga "mañana", "el viernes", "el próximo lunes", etc., calcula la fecha relativa a este día. Si dice un día con número (ej: "viernes 25"), verifica que el día de la semana y el número coincidan antes de confirmar.\n</contexto_temporal>`;
+  const horaActual = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(now);
+
+  let out =
+    `<contexto_temporal>\n` +
+    `Hoy es ${human} (${iso}). En este momento son las ${horaActual} (hora local del negocio, timezone ${tz}).\n`;
+
+  if (hours) {
+    out += `${describeOpenState(now, tz, hours)}\n`;
+  }
+
+  out +=
+    `Cuando el contacto diga "mañana", "el viernes", "el próximo lunes", etc., calcula la fecha relativa a este día. ` +
+    `Si dice un día con número (ej: "viernes 25"), verifica que el día de la semana y el número coincidan antes de confirmar.\n` +
+    `</contexto_temporal>`;
+
+  return out;
+}
+
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+/** Minutos transcurridos del día (0-1439) para una hora "HH:MM". */
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10));
+  return h * 60 + m;
+}
+
+/**
+ * Calcula si el negocio está ABIERTO, POR_CERRAR o CERRADO en este momento y
+ * lo devuelve como línea de texto para el bloque de contexto temporal.
+ *
+ * POR_CERRAR = todavía es horario de atención, pero falta tan poco para
+ * cerrar que ya no da tiempo de atender a la persona hoy. Es un estado
+ * aparte a propósito: ni se le puede prometer media hora, ni es honesto
+ * decirle "estamos fuera de horario" cuando técnicamente aún no cierran.
+ */
+function describeOpenState(
+  now: Date,
+  tz: string,
+  hours: NonNullable<NonNullable<BotConfig['schedule']>['business_hours']>
+): string {
+  // Día y hora tal como se ven EN la timezone del negocio, no en la del
+  // servidor (Railway corre en UTC).
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  const weekdayShort = get('weekday').toLowerCase().slice(0, 3);
+  const nowMinutes = parseInt(get('hour'), 10) * 60 + parseInt(get('minute'), 10);
+
+  const range = (hours.days as Record<string, [string, string] | undefined>)[weekdayShort];
+
+  const resumen = WEEKDAY_KEYS.map((k) => {
+    const r = (hours.days as Record<string, [string, string] | undefined>)[k];
+    return r ? `${k} ${r[0]}-${r[1]}` : null;
+  })
+    .filter(Boolean)
+    .join(', ');
+
+  if (!range) {
+    return `Estado del consultorio en este momento: CERRADO (hoy no se atiende). Horario: ${resumen}.`;
+  }
+
+  const open = hhmmToMinutes(range[0]);
+  const close = hhmmToMinutes(range[1]);
+
+  if (nowMinutes < open || nowMinutes >= close) {
+    return `Estado del consultorio en este momento: CERRADO (hoy se atiende de ${range[0]} a ${range[1]}). Horario: ${resumen}.`;
+  }
+  if (close - nowMinutes <= hours.closing_soon_minutes) {
+    return (
+      `Estado del consultorio en este momento: POR_CERRAR ` +
+      `(faltan ${close - nowMinutes} minutos para cerrar a las ${range[1]}, ya no da tiempo de atenderla hoy). ` +
+      `Horario: ${resumen}.`
+    );
+  }
+  return `Estado del consultorio en este momento: ABIERTO (hoy hasta las ${range[1]}). Horario: ${resumen}.`;
 }
 
 /**
@@ -359,7 +457,7 @@ export async function getClaudeResponse(
         `a una persona del equipo, pídele primero un número de WhatsApp.`,
     },
   ];
-  if (cfgAll.calendars || cfgAll.follow_ups) {
+  if (cfgAll.calendars || cfgAll.follow_ups || cfgAll.schedule?.business_hours) {
     systemBlocks.push({ type: 'text', text: getDateContext() });
   }
 
@@ -483,7 +581,7 @@ export async function generateFollowUpMessage(
   const systemBlocks: Anthropic.TextBlockParam[] = [
     { type: 'text', text: buildSystemPrompt(), cache_control: { type: 'ephemeral' } },
   ];
-  if (cfgAll.calendars || cfgAll.follow_ups) {
+  if (cfgAll.calendars || cfgAll.follow_ups || cfgAll.schedule?.business_hours) {
     systemBlocks.push({ type: 'text', text: getDateContext() });
   }
 
