@@ -128,9 +128,22 @@ follow_ups:
   window_start_hour: 10
   window_end_hour: 22
   cadence_hours: [3, 19]
+  # Respaldo: solo se usan si la generación contextual con Claude falla.
+  # Van de "usted" como todo lo demás del bot (regla explícita del
+  # consultorio) — estaban tuteando, y como hasta ahora ningún follow-up
+  # llegaba a dispararse, nadie las había visto en un chat real.
   messages:
-    - "Hola {nombre}, soy el asistente de Romero Cirugía Plástica. Pudiste ver la información que te mandé? Cualquier duda, aquí estoy para ayudarte"
-    - "Hola {nombre}, no quiero ser insistente, cuando gustes retomamos. Aquí voy a estar si me necesitas"
+    - "Hola {nombre}, le escribe la asistente virtual del Dr. Romero. Pudo ver la información que le mandamos? Cualquier duda, con gusto la resolvemos por aquí"
+    - "Hola {nombre}, no queremos ser insistentes. Cuando guste retomamos, aquí seguimos a sus órdenes"
+
+  # Etapa desde la que el seguimiento tiene sentido. Si la opportunity ya no
+  # está aquí (Karime la movió a mano, o el bot la escaló a "Calificada"), el
+  # follow-up y el marca-perdido se saltan. Sin esta línea, el job de las 22h
+  # podía jalar de vuelta a "No contestó" a una paciente que el equipo ya
+  # estaba atendiendo, y eso además le dispararía el Workflow de plantillas
+  # de 7 días de GHL.
+  entry_stage: "En conversación"
+
   lost_after_hours: 22
   lost_stage: No contestó
 

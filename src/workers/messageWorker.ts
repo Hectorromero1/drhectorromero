@@ -780,7 +780,6 @@ export async function startMessageWorker(concurrency = 5) {
         // Se suprimen cuando la conversación ya "cerró":
         //  - agendó cita en ESTE turno, o ya tiene una cita activa de un turno anterior
         //  - escaló a humano en ESTE turno, o ya está en la etapa de escalation.stage
-        //  - el modelo movió de etapa (mover_a_etapa)
         //  - confirmó asistencia a una plantilla de recordatorio ("Sí asistiré")
         //
         // Importante: la cita/escalación de turnos ANTERIORES se revisa contra el
@@ -789,10 +788,19 @@ export async function startMessageWorker(concurrency = 5) {
         // para alguien que ya tiene su cita apartada.
         if (getConfig().follow_ups) {
           const usedTools = new Set(toolCalls.map((t) => t.toolName));
+          // OJO: `mover_a_etapa` NO cuenta como cierre, aunque lo parezca. Las
+          // etapas de cierre van marcadas `AUTO:` en el yaml y por eso están
+          // ocultas del enum que ve el modelo (ver buildTools en
+          // services/claude.ts) — así que esa tool solo puede mover a etapas
+          // manuales, o sea a etapas de conversación EN CURSO. Cuando estaba
+          // en esta lista, el bot de Dr. Romero daba por cerrado cada turno en
+          // que el modelo movía a "En conversación" (o sea casi todos): 36 de
+          // 36 turnos salieron "no programado", cero follow-ups y cero leads
+          // movidos a "No contestó" en semanas. El cierre real de un turno
+          // anterior ya se verifica abajo contra el estado vivo de GHL.
           let yaCerrado =
             usedTools.has('agendar_cita') ||
-            usedTools.has('escalar_a_humano') ||
-            usedTools.has('mover_a_etapa');
+            usedTools.has('escalar_a_humano');
 
           if (!yaCerrado && getConfig().calendars) {
             try {
