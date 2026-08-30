@@ -227,14 +227,23 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
 
   await sendMessage(contactId, text, channel);
 
-  // 9. Persistir: append al historial + incrementar contador + bump last_bot_message_at
+  // 9. Persistir: append al historial + incrementar contador.
+  //
+  // OJO: aquí NO se toca `last_bot_message_at` a propósito. Esa columna es la
+  // señal de "el bot contestó de verdad y por eso hay una tanda de follow-ups
+  // nueva", y solo la escribe messageWorker al responder un mensaje del
+  // cliente. Los tres jobs de una tanda (fu1, fu2, mark-lost) comparten el
+  // mismo `scheduledAt`, así que si el follow-up #1 la bumpeaba, el chequeo
+  // de stale de arriba mataba a los otros dos: la cadencia de dos intentos
+  // era en realidad de uno, y NADIE llegaba nunca a la etapa "No contestó"
+  // (ni, por lo tanto, al Workflow de plantillas de 7 días de GHL que cuelga
+  // de ella). La idempotencia del intento ya la da `follow_ups_sent` (paso 5).
   const now = new Date().toISOString();
   const newMessages = [...history, { role: 'assistant' as const, content: text, ts: now }];
   await db.query(
     `UPDATE conversations
      SET messages = $1::jsonb,
          follow_ups_sent = $2,
-         last_bot_message_at = now(),
          last_activity = now()
      WHERE contact_id = $3`,
     [JSON.stringify(newMessages), attempt, contactId]
