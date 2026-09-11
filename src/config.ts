@@ -216,13 +216,13 @@ const ConfigSchema = z.object({
     .object({
       message_debounce_seconds: z.number().int().positive().default(30),
       worker_concurrency: z.number().int().positive().default(5),
-      model: z.string().default('claude-sonnet-4-6'),
+      model: z.string().default('claude-haiku-4-5'),
       max_response_tokens: z.number().int().positive().default(1024),
     })
     .default({
       message_debounce_seconds: 30,
       worker_concurrency: 5,
-      model: 'claude-sonnet-4-6',
+      model: 'claude-haiku-4-5',
       max_response_tokens: 1024,
     }),
   pipeline: PipelineSchema.optional(),
