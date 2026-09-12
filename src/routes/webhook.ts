@@ -3,7 +3,7 @@ import { enqueueMessage } from '../queue';
 import { db } from '../db/client';
 import { GHLWebhookPayload, GhlChannel } from '../types';
 import { getLatestMessageInfo } from '../services/ghl';
-import { contactoBloqueado, contactoBloqueadoAsync, bloquearContacto } from '../blocklist';
+import { contactoBloqueado, bloquearContacto } from '../blocklist';
 import { evaluarLoop, EstadoContacto } from '../loop-guard';
 import { cancelarFollowUpsPendientes } from '../services/follow-up';
 import { getConfig } from '../config';
