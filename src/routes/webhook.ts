@@ -3,7 +3,10 @@ import { enqueueMessage } from '../queue';
 import { db } from '../db/client';
 import { GHLWebhookPayload, GhlChannel } from '../types';
 import { getLatestMessageInfo } from '../services/ghl';
-import { contactoBloqueado } from '../blocklist';
+import { contactoBloqueado, contactoBloqueadoAsync, bloquearContacto } from '../blocklist';
+import { evaluarLoop, EstadoContacto } from '../loop-guard';
+import { cancelarFollowUpsPendientes } from '../services/follow-up';
+import { getConfig } from '../config';
 
 export const webhookRouter = Router();
 
@@ -56,8 +59,38 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
       // Se descarta ANTES de escribir en la base y de encolar: no se guarda
       // historial, no se llama a Claude y no se responde nada. Silencio total
       // — si contestamos aunque sea una vez, el bot del otro lado sigue.
+      // La lista estática se chequea primero porque no cuesta ni una query.
       if (contactoBloqueado(contactId, phone)) {
-        console.log(`[webhook:${channel}] Bloqueado — contacto en blocklist | contact=${contactId} phone=${phone}`);
+        console.log(`[webhook:${channel}] Bloqueado — blocklist estática | contact=${contactId} phone=${phone}`);
+        return;
+      }
+
+      // Estado previo del contacto: el bloqueo automático y las señales que
+      // el loop-guard necesita para decidir si del otro lado hay una máquina.
+      const estadoRes = await db.query<EstadoContacto & { blocked_at: Date | null }>(
+        `SELECT blocked_at, last_bot_message_at, last_activity,
+                turn_count, fast_replies, fast_reply_marker
+         FROM conversations WHERE contact_id = $1`,
+        [contactId]
+      );
+      const estado = estadoRes.rows[0] ?? null;
+
+      if (estado?.blocked_at) {
+        console.log(`[webhook:${channel}] Bloqueado — blocklist automática | contact=${contactId}`);
+        return;
+      }
+
+      // Loop-guard (ver src/loop-guard.ts). Corre aquí arriba a propósito: el
+      // turno que dispara la detección no llega a pedir media a GHL, ni a la
+      // cola, ni a Claude. Cero tokens gastados en el mensaje que delata.
+      const guard = evaluarLoop(estado, getConfig().loop_guard);
+      if (guard.motivoBloqueo) {
+        await bloquearContacto(contactId, guard.motivoBloqueo);
+        await cancelarFollowUpsPendientes(contactId).catch(() => {});
+        console.warn(
+          `[webhook:${channel}] Loop detectado, contacto a lista negra | ` +
+            `contact=${contactId} phone=${phone} motivo="${guard.motivoBloqueo}"`
+        );
         return;
       }
 
@@ -88,10 +121,13 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
       // Persistimos el canal en metadata.channel para auditoría y para que el
       // worker de follow-ups sepa por dónde responder.
       await db.query(
-        `INSERT INTO conversations (contact_id, phone, contact_name, messages, metadata, pending_message, pending_at, pending_attachments)
-         VALUES ($1, $2, $3, '[]'::jsonb, jsonb_build_object('channel', $6::text), $4, now(), COALESCE($5::jsonb, '[]'::jsonb))
+        `INSERT INTO conversations (contact_id, phone, contact_name, messages, metadata, pending_message, pending_at, pending_attachments, turn_count, fast_replies, fast_reply_marker)
+         VALUES ($1, $2, $3, '[]'::jsonb, jsonb_build_object('channel', $6::text), $4, now(), COALESCE($5::jsonb, '[]'::jsonb), $7, $8, $9)
          ON CONFLICT (contact_id)
          DO UPDATE SET
+           turn_count = $7,
+           fast_replies = $8,
+           fast_reply_marker = $9,
            pending_message = CASE
              WHEN conversations.pending_message IS NULL OR conversations.pending_message = ''
                THEN $4
@@ -108,6 +144,9 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
           textForClaude,
           attachmentUrl ? JSON.stringify([{ url: attachmentUrl, kind: attachmentKind }]) : null,
           channel,
+          guard.turnCount,
+          guard.fastReplies,
+          guard.fastReplyMarker,
         ]
       );
 

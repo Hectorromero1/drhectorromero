@@ -130,6 +130,30 @@ const CustomFieldsSchema = z
   })
   .strict();
 
+// Loop-guard: detecta automáticamente que del otro lado hay una máquina y
+// manda el contacto a la lista negra (ver src/loop-guard.ts). Va activo por
+// defecto — se apaga con `loop_guard: { enabled: false }` en el yaml.
+const LoopGuardSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+    // Turnos seguidos en una MISMA ráfaga antes de dar la conversación por
+    // artificial. Alto a propósito: una conversación real de agendamiento son
+    // 10-20 turnos, así que 40 solo lo alcanza algo que no es una persona.
+    max_turns: z.number().int().positive().max(200).default(40),
+    // Pausa que reinicia el contador de turnos. Sin esto, un paciente que
+    // escribe durante meses acabaría bloqueado por acumulación. Un loop de
+    // bots es continuo (segundos entre mensajes), nunca pausa una hora.
+    reset_after_minutes: z.number().int().positive().default(60),
+    // Responder al bot en menos de estos segundos cuenta como cadencia de
+    // máquina. Se mide contra el último mensaje del bot, en el webhook, con
+    // la hora real de llegada (no la del historial, que trae el debounce).
+    fast_reply_seconds: z.number().int().positive().default(5),
+    // Cuántos turnos SEGUIDOS con cadencia de máquina antes de bloquear. Un
+    // humano manda un "sí" en 3 segundos una vez; no cinco veces seguidas.
+    fast_replies_streak: z.number().int().positive().default(5),
+  })
+  .strict();
+
 const EscalationSchema = z.object({
   // Tag que se agrega al contacto en GHL al escalar (para workflows del equipo).
   tag: z.string().min(1).default('requiere_humano'),
@@ -229,6 +253,7 @@ const ConfigSchema = z.object({
   calendars: CalendarsSchema.optional(),
   follow_ups: FollowUpsSchema.optional(),
   escalation: EscalationSchema.optional(),
+  loop_guard: LoopGuardSchema.default({}),
   custom_fields: CustomFieldsSchema.optional(),
   offer: OfferSchema.optional(),
   schedule: ScheduleSchema.optional(),
@@ -244,6 +269,7 @@ export type PipelineStage = z.infer<typeof PipelineStageSchema>;
 export type CalendarsConfig = z.infer<typeof CalendarsSchema>;
 export type FollowUpsConfig = z.infer<typeof FollowUpsSchema>;
 export type EscalationConfig = z.infer<typeof EscalationSchema>;
+export type LoopGuardConfig = z.infer<typeof LoopGuardSchema>;
 export type CustomFieldsConfig = z.infer<typeof CustomFieldsSchema>;
 export type BusinessHoursConfig = z.infer<typeof BusinessHoursSchema>;
 

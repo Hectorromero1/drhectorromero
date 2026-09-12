@@ -159,6 +159,42 @@ escalation:
   stage: Calificada
 
 # ===========================================================================
+# Loop-guard — corta conversaciones con otros bots
+# ---------------------------------------------------------------------------
+# Cuando del otro lado hay una máquina (otro bot de WhatsApp), los dos se
+# responden infinitamente y cada vuelta cuesta tokens. Esto lo detecta solo y
+# manda el contacto a la lista negra permanente: a partir de ahí se ignora
+# todo lo que mande, en silencio, sin tag y sin avisar a Karime.
+#
+# Va activo por defecto aunque no exista este bloque. Para apagarlo:
+#   loop_guard:
+#     enabled: false
+#
+# Para desbloquear a alguien que haya caído por error hay que limpiarlo en la
+# base (ver la receta al inicio de src/blocklist.ts) y reiniciar en Railway.
+# ===========================================================================
+
+loop_guard:
+  enabled: true
+
+  # Turnos seguidos, sin una pausa larga de por medio, antes de dar la
+  # conversación por artificial. Una conversación real de agendamiento son
+  # 10-20 turnos, así que 40 solo lo alcanza algo que no es una persona.
+  max_turns: 40
+
+  # Minutos de silencio que reinician el contador de turnos. Sin esto, una
+  # paciente que escribe durante meses acabaría bloqueada por acumulación.
+  reset_after_minutes: 60
+
+  # Contestarle al bot en menos de estos segundos cuenta como cadencia de
+  # máquina. Ojo al bajarlo: una persona SÍ manda un "sí" en 3 segundos.
+  fast_reply_seconds: 5
+
+  # Cuántos turnos SEGUIDOS con esa cadencia antes de bloquear. Una persona
+  # contesta rapidísimo una o dos veces; no cinco veces seguidas.
+  fast_replies_streak: 5
+
+# ===========================================================================
 # Campos personalizados
 # ===========================================================================
 

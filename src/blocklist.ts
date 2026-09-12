@@ -14,10 +14,24 @@
  * Silencioso a propósito: cualquier respuesta (aunque sea "adiós") le da al
  * otro bot algo a qué contestar.
  *
- * Cómo agregar más contactos:
+ * Hay dos formas de entrar a la lista:
+ *
+ *   - MANUAL (este archivo / env var) — la pones tú porque ya sabes que ese
+ *     número no es una persona.
+ *   - AUTOMÁTICA (src/loop-guard.ts) — el bot detecta solo la cadencia de una
+ *     máquina o una ráfaga de turnos imposible para un humano, y escribe el
+ *     bloqueo en la base (conversations.blocked_at). Esa vía no necesita
+ *     deploy y sobrevive reinicios.
+ *
+ * Cómo agregar más contactos a mano:
  *   - permanente → agrega el número a BLOQUEADOS aquí abajo y haz push
  *   - temporal / sin deploy → env var BLOCKED_NUMBERS en Railway, separada
  *     por comas: "3326305903, 8112345678". Acepta también contactIds de GHL.
+ *
+ * Para desbloquear a alguien que cayó por error, en la base:
+ *   UPDATE conversations SET blocked_at = NULL, blocked_reason = NULL,
+ *          turn_count = 0, fast_replies = 0 WHERE contact_id = '...';
+ * (y reinicia el servicio en Railway, porque el bloqueo se cachea en memoria)
  */
 
 import { db } from './db/client';
@@ -76,28 +90,74 @@ export function contactoBloqueado(contactId?: string | null, phone?: string | nu
   return telefonoBloqueado(phone);
 }
 
-// El follow-up worker solo tiene el contactId, así que ahí sí hay que ir a la
-// base por el teléfono. Se cachea porque el teléfono de un contacto no cambia.
-const cacheTelefonoPorContacto = new Map<string, string | null>();
+// Cache en memoria de los bloqueos que viven en la base. El bloqueo es
+// permanente, así que una vez confirmado no hace falta volver a preguntar:
+// los contactos bloqueados dejan de costar hasta una query.
+const bloqueadosEnBase = new Set<string>();
 
-/** Igual que contactoBloqueado, pero resuelve el teléfono desde la base. */
-export async function contactoBloqueadoAsync(contactId: string): Promise<boolean> {
-  if (contactIdsBloqueados().has(contactId)) return true;
+/**
+ * Resuelve contra la base: el bloqueo automático del loop-guard y, de paso,
+ * el teléfono del contacto — el worker de follow-ups solo tiene el contactId,
+ * así que sin esto un proactivo hacia un número de la lista estática se
+ * escaparía. Una sola query resuelve las dos cosas.
+ *
+ * Si la base falla, responde que no: el webhook ya filtró por la lista
+ * estática y preferimos un turno de más a dejar de atender pacientes.
+ */
+async function bloqueadoEnBase(contactId: string): Promise<boolean> {
+  if (bloqueadosEnBase.has(contactId)) return true;
+  try {
+    const res = await db.query<{ blocked_at: Date | null; phone: string | null }>(
+      `SELECT blocked_at, phone FROM conversations WHERE contact_id = $1`,
+      [contactId]
+    );
+    const fila = res.rows[0];
+    if (!fila) return false;
 
-  if (!cacheTelefonoPorContacto.has(contactId)) {
-    try {
-      const res = await db.query<{ phone: string | null }>(
-        `SELECT phone FROM conversations WHERE contact_id = $1`,
-        [contactId]
-      );
-      cacheTelefonoPorContacto.set(contactId, res.rows[0]?.phone ?? null);
-    } catch (err) {
-      // Si la base falla no bloqueamos de más: el gate del webhook ya filtró
-      // el entrante, esto es defensa en profundidad.
-      console.warn(`[blocklist] no se pudo resolver teléfono | contact=${contactId}: ${(err as Error).message}`);
-      return false;
+    if (fila.blocked_at || telefonoBloqueado(fila.phone)) {
+      bloqueadosEnBase.add(contactId);
+      return true;
     }
+    return false;
+  } catch (err) {
+    console.warn(`[blocklist] no se pudo consultar bloqueo | contact=${contactId}: ${(err as Error).message}`);
+    return false;
   }
+}
 
-  return telefonoBloqueado(cacheTelefonoPorContacto.get(contactId) ?? null);
+/**
+ * Chequeo completo: lista estática (código/env) + bloqueo automático en base.
+ * Es el que usan el webhook, el worker de mensajes y el de follow-ups.
+ */
+export async function contactoBloqueadoAsync(
+  contactId: string,
+  phone?: string | null
+): Promise<boolean> {
+  if (contactoBloqueado(contactId, phone)) return true;
+  return bloqueadoEnBase(contactId);
+}
+
+/**
+ * Manda un contacto a la lista negra permanente. Lo llama el loop-guard
+ * cuando detecta que del otro lado hay una máquina.
+ *
+ * A propósito NO escala, NO pone tag y NO avisa a nadie: es un contacto que
+ * no queremos atender, no un lead que requiere un humano. Queda el motivo en
+ * blocked_reason y una línea en los logs para poder auditarlo después.
+ */
+export async function bloquearContacto(contactId: string, motivo: string): Promise<void> {
+  bloqueadosEnBase.add(contactId);
+  try {
+    await db.query(
+      `UPDATE conversations
+       SET blocked_at = now(), blocked_reason = $2,
+           pending_message = NULL, pending_at = NULL,
+           pending_attachments = '[]'::jsonb
+       WHERE contact_id = $1`,
+      [contactId, motivo]
+    );
+    console.warn(`[blocklist] BLOQUEADO automáticamente | contact=${contactId} motivo="${motivo}"`);
+  } catch (err) {
+    console.error(`[blocklist] no se pudo persistir el bloqueo | contact=${contactId}: ${(err as Error).message}`);
+  }
 }
