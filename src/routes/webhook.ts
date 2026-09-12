@@ -3,6 +3,7 @@ import { enqueueMessage } from '../queue';
 import { db } from '../db/client';
 import { GHLWebhookPayload, GhlChannel } from '../types';
 import { getLatestMessageInfo } from '../services/ghl';
+import { contactoBloqueado } from '../blocklist';
 
 export const webhookRouter = Router();
 
@@ -48,6 +49,15 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
 
       if (!contactId) {
         console.log(`[webhook:${channel}] Skipped — sin contactId`);
+        return;
+      }
+
+      // Corte total para contactos en la lista negra (ver src/blocklist.ts).
+      // Se descarta ANTES de escribir en la base y de encolar: no se guarda
+      // historial, no se llama a Claude y no se responde nada. Silencio total
+      // — si contestamos aunque sea una vez, el bot del otro lado sigue.
+      if (contactoBloqueado(contactId, phone)) {
+        console.log(`[webhook:${channel}] Bloqueado — contacto en blocklist | contact=${contactId} phone=${phone}`);
         return;
       }
 

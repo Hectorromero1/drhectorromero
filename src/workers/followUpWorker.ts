@@ -22,6 +22,7 @@ import { db } from '../db/client';
 import { ChatMessage, GhlChannel } from '../types';
 import { findContactOpportunity, moveOpportunityToStage, sendMessage } from '../services/ghl';
 import { generateFollowUpMessage } from '../services/claude';
+import { contactoBloqueadoAsync } from '../blocklist';
 import { getConfig } from '../config';
 import {
   FOLLOW_UP_QUEUE,
@@ -145,6 +146,13 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
 
   console.log(`[follow-up] fired | contact=${contactId} attempt=${attempt}`);
 
+  // Blocklist: jamás un proactivo a un contacto bloqueado (ver src/blocklist.ts).
+  if (await contactoBloqueadoAsync(contactId)) {
+    console.log(`[follow-up] bloqueado — contacto en blocklist | contact=${contactId}`);
+    await cancelarFollowUpsPendientes(contactId).catch(() => {});
+    return;
+  }
+
   // 1. Re-programar si estamos fuera de ventana
   if (await deferIfOutOfWindow(FOLLOW_UP_QUEUE, data, contactId)) return;
 
@@ -259,6 +267,11 @@ async function handleMarkLost(data: MarkLostJobData): Promise<void> {
   if (!fu?.lost_stage || !cfg.pipeline || !process.env.GHL_LOCATION_ID) return;
 
   console.log(`[mark-lost] fired | contact=${contactId}`);
+
+  if (await contactoBloqueadoAsync(contactId)) {
+    console.log(`[mark-lost] bloqueado — contacto en blocklist | contact=${contactId}`);
+    return;
+  }
 
   // 1. Cargar conversación
   const r = await db.query(

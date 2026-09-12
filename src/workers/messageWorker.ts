@@ -26,6 +26,7 @@ import {
   detectAttendanceConfirmation,
   cancelarFollowUpsPendientes,
 } from '../services/follow-up';
+import { contactoBloqueado } from '../blocklist';
 
 /**
  * Handler de tools — recibe el nombre de la tool que Claude llamó y el
@@ -627,6 +628,21 @@ export async function startMessageWorker(concurrency = 5) {
     async (job) => {
       if (!job) return;
       const { contactId, phone, contactName, message, channel } = job.data;
+
+      // Blocklist (ver src/blocklist.ts). El webhook ya filtra el entrante,
+      // pero un job pudo quedar encolado antes del bloqueo: se descarta aquí,
+      // limpiando el pendiente para que no lo reviva un reintento.
+      if (contactoBloqueado(contactId, phone)) {
+        await db.query(
+          `UPDATE conversations
+           SET pending_message = NULL, pending_at = NULL, pending_attachments = '[]'::jsonb
+           WHERE contact_id = $1`,
+          [contactId]
+        ).catch(() => {});
+        await cancelarFollowUpsPendientes(contactId).catch(() => {});
+        console.log(`[worker] Bloqueado — contacto en blocklist | contact=${contactId}`);
+        return;
+      }
 
       console.log(`[worker] Processing | contact=${contactId} channel=${channel ?? 'unknown'}`);
 
