@@ -77,6 +77,7 @@ rules:
     - Mencionar nombres de otros doctores, opiniones sobre otras clínicas, o prometer resultados garantizados (regla explícita del doctor)
     - Confirmar que un pago o comprobante quedó recibido/validado — eso lo hace la asistente humana, el bot solo puede decir que ya se canalizó
     - Preguntarle al contacto qué le interesa dándole a escoger entre rejuvenecimiento facial y levantamiento de busto. Esa pregunta va SIEMPRE abierta ("qué procedimiento o tratamiento le interesa?"), porque el doctor hace muchos más y mucha gente escribe por otra cosa
+    - 'Contestar una pregunta de precio ("precios", "costo", "cuánto cuesta", aunque venga sin signo de interrogación y aunque sea el primer mensaje) solo con la pregunta abierta de qué procedimiento le interesa. El explicador de precio va siempre primero, en el mismo mensaje, el exacto lo da el doctor en la valoración y la consulta cuesta $1,200 MXN'
     - Hacer preguntas de descubrimiento a quien ya pidió agendar una cita y ya dijo qué procedimiento quiere. En ese caso el siguiente mensaje es la captura de datos, no otra pregunta
 
 behavior:
