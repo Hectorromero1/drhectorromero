@@ -602,11 +602,27 @@ export async function generateFollowUpMessage(
 }
 
 /**
+ * Normaliza el formato al que sí entiende WhatsApp.
+ *
+ * El modelo escribe markdown por costumbre (`**negrita**`) y WhatsApp lo
+ * muestra con los asteriscos literales — le llegó así a contactos reales.
+ * El prompt ya lo prohíbe, pero esto es el cinturón de seguridad: sea cual
+ * sea el modelo o el turno, al contacto le llega el formato correcto.
+ */
+export function normalizeWhatsAppFormat(text: string): string {
+  return text
+    // **negrita** → *negrita* (WhatsApp usa un solo asterisco)
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '*$1*')
+    // ### Encabezados de markdown: no existen en WhatsApp
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '');
+}
+
+/**
  * Divide el texto en hasta 3 partes para WhatsApp. Corta preferentemente en
  * separación de párrafos para no partir listas a la mitad.
  */
 export function splitMessage(text: string, maxChars = 800): string[] {
-  const clean = text.trim();
+  const clean = normalizeWhatsAppFormat(text).trim();
   if (clean.length <= maxChars) return [clean];
 
   const parts: string[] = [];

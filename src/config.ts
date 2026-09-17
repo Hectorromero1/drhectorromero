@@ -261,7 +261,39 @@ const ConfigSchema = z.object({
   payment_methods: z.string().optional(),
   lodging: z.string().optional(),
   video_resources: z.array(VideoResourceSchema).optional(),
-});
+})
+  // Las etapas del pipeline se referencian POR NOMBRE desde cuatro lugares
+  // distintos del yaml, y el código las resuelve por nombre exacto (mayúsculas
+  // incluidas). Si un nombre no coincide, el bot NO da error: simplemente deja
+  // de mover contactos, y eso se descubre semanas después revisando el CRM a
+  // mano. Mejor no arrancar.
+  //
+  // Ojo con lo que esto NO cubre: si alguien renombra la etapa dentro de GHL,
+  // el yaml sigue siendo coherente consigo mismo y esta validación pasa. Ahí
+  // el único aviso es el warning de `[pipeline:auto] stage no configurada`
+  // en los logs.
+  .superRefine((cfg, ctx) => {
+    if (!cfg.pipeline) return;
+    const nombres = new Set(cfg.pipeline.stages.map((s) => s.name));
+    const refs: Array<[string[], string | undefined]> = [
+      [['calendars', 'booked_stage'], cfg.calendars?.booked_stage],
+      [['escalation', 'stage'], cfg.escalation?.stage],
+      [['follow_ups', 'lost_stage'], cfg.follow_ups?.lost_stage],
+      [['follow_ups', 'entry_stage'], cfg.follow_ups?.entry_stage],
+    ];
+    for (const [path, valor] of refs) {
+      if (valor && !nombres.has(valor)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path,
+          message:
+            `"${valor}" no es ninguna de las etapas de pipeline.stages ` +
+            `(${[...nombres].map((n) => `"${n}"`).join(', ')}). ` +
+            'Tiene que coincidir EXACTO, mayúsculas y acentos incluidos.',
+        });
+      }
+    }
+  });
 
 export type BotConfig = z.infer<typeof ConfigSchema>;
 export type PipelineConfig = z.infer<typeof PipelineSchema>;

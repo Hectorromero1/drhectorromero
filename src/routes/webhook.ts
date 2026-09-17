@@ -94,27 +94,36 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
         return;
       }
 
-      // Si message.body viene vacío es porque llegó media (foto/audio/pdf).
-      // GHL no la incluye en el webhook — se pide a la conversations API.
+      // GHL no manda la URL del adjunto en el webhook — hay que pedirla a la
+      // conversations API. OJO: un mensaje de WhatsApp puede traer TEXTO Y
+      // media juntos (ej. una foto con un comentario), por eso esto se
+      // consulta SIEMPRE, no solo cuando message.body viene vacío. Antes solo
+      // se checaba si el body venía vacío, así que cualquier imagen o audio
+      // mandado junto con texto se ignoraba por completo (bug real: un
+      // contacto mandó una foto con la frase "conseguí el dinero pero en
+      // efectivo" y la foto nunca se procesó).
       let attachmentUrl: string | null = null;
       let attachmentKind: string | null = null;
       let textForClaude = messageText;
 
-      if (!messageText) {
-        const info = await getLatestMessageInfo(contactId);
-        const att = info?.attachment;
-        if (!att) {
-          console.log(`[webhook:${channel}] Skipped — sin texto ni attachment | contact=${contactId}`);
-          return;
-        }
+      const info = await getLatestMessageInfo(contactId);
+      const att = info?.attachment;
+      if (att) {
         attachmentUrl = att.url;
         attachmentKind = att.kind;
         console.log(`[webhook:${channel}] Media detectada | contact=${contactId} kind=${att.kind} ext=${att.ext}`);
 
-        if (att.kind === 'image') textForClaude = '[el contacto envió una imagen]';
-        else if (att.kind === 'pdf') textForClaude = '[el contacto envió un PDF]';
-        else if (att.kind === 'audio') textForClaude = '[el contacto envió un audio]';
-        else textForClaude = '[el contacto envió un archivo]';
+        const placeholder =
+          att.kind === 'image' ? '[el contacto envió una imagen]'
+          : att.kind === 'pdf' ? '[el contacto envió un PDF]'
+          : att.kind === 'audio' ? '[el contacto envió un audio]'
+          : '[el contacto envió un archivo]';
+        textForClaude = textForClaude ? `${textForClaude}\n${placeholder}` : placeholder;
+      }
+
+      if (!textForClaude) {
+        console.log(`[webhook:${channel}] Skipped — sin texto ni attachment | contact=${contactId}`);
+        return;
       }
 
       // Upsert con concatenación del pending_message + append a pending_attachments.

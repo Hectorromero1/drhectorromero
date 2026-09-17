@@ -9,6 +9,7 @@ import { boss } from './queue';
 import { db } from './db/client';
 import { SCHEMA_SQL } from './db/schema';
 import { getConfig } from './config';
+import { warnIfApiKeysLookSwapped } from './env';
 
 const app = express();
 app.use(express.json());
@@ -40,6 +41,8 @@ async function main() {
   // un error, mejor fallar acá con un mensaje claro que más adelante.
   const config = getConfig();
   console.log(`[config] Loaded for bot=${config.bot.name} (${config.business.name})`);
+
+  warnIfApiKeysLookSwapped();
 
   await db.query('SELECT 1');
   console.log('[db] Connected');
