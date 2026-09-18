@@ -30,9 +30,11 @@ business:
     Consultorio de cirugía plástica estética y reconstructiva del Dr. Héctor
     Hugo Romero Garza. Atiende dos campañas activas de publicidad: rejuvenecimiento
     facial y levantamiento de busto.
-    Ubicación: San Pedro Garza García, Nuevo León. La dirección exacta (calle,
-    número, interior, piso) NO va aquí a propósito: el bot nunca la da, la
-    comparte Karime una vez agendando la cita.
+    Ubicación: Av Lázaro Cárdenas Ext. 2264-Int. Piso 2-205, Zona Valle
+    Oriente, 66278 San Pedro Garza García, N.L. La primera respuesta de
+    ubicación es solo "San Pedro Garza García, N.L."; la dirección completa
+    se da si la piden o insisten (instrucción del doctor, 17-sep-2026 —
+    antes el bot nunca la daba). Ver Ubicación en <business_knowledge>.
     Instagram: https://instagram.com/dr.romerogarza — Sitio: https://romerocirugiaplastica.com/
     Landing de campaña: https://rejuvenecimientofacial.romerocirugiaplastica.com/
     Horario de atención del consultorio (WhatsApp): lunes a viernes 9:00am-7:00pm,
