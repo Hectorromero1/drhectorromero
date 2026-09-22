@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 import express, { Request, Response, NextFunction } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { webhookRouter } from './routes/webhook';
 import { startMessageWorker } from './workers/messageWorker';
 import { startFollowUpWorker } from './workers/followUpWorker';
@@ -20,8 +21,37 @@ app.get('/health', (_req, res) => {
 
 app.use('/webhook', webhookRouter);
 
-// Endpoint de admin para debugging — listar las últimas conversaciones
-app.get('/admin/conversations', async (_req, res) => {
+// Endpoint de admin para debugging — listar las últimas conversaciones.
+//
+// Va detrás de un token porque devuelve datos de contactos reales (nombre e id
+// de GHL de cada persona que le ha escrito al bot). Estuvo abierto a internet
+// y cualquiera con la URL podía descargar la lista completa — es el E70 de la
+// skill `errores-bot`, que se encontró en producción el 22/09/2026.
+//
+// Falla CERRADO: sin `ADMIN_TOKEN` seteado nadie entra. Y no tumba el proceso
+// al arrancar a propósito: dejar sin WhatsApp a un negocio por una variable
+// que solo afecta a un endpoint de debugging sería peor que el hueco.
+function requireAdminToken(req: Request, res: Response, next: NextFunction) {
+  const expected = process.env.ADMIN_TOKEN;
+  if (!expected) {
+    console.warn('[admin] Rechazado — falta ADMIN_TOKEN en el entorno');
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  const provided = req.header('x-admin-token') ?? '';
+  // Comparación de tiempo constante: un `!==` filtra el token carácter a
+  // carácter ante quien pueda medir la respuesta.
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    console.warn(`[admin] Rechazado | ua="${req.header('user-agent') ?? 'unknown'}"`);
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next();
+}
+
+app.get('/admin/conversations', requireAdminToken, async (_req, res) => {
   const result = await db.query(
     'SELECT contact_id, contact_name, last_activity FROM conversations ORDER BY last_activity DESC LIMIT 20'
   );
