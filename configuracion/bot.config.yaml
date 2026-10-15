@@ -304,7 +304,7 @@ custom_fields:
       when: "En cuanto la paciente diga su nombre completo. Si solo da su nombre de pila, guarda lo que tengas y actualízalo si después da el apellido."
     - id: bGJYZqTt5dzHHw49GkvM
       name: Procedimiento de interés
-      when: "Cuando el contacto deje claro qué procedimiento le interesa: rejuvenecimiento facial, levantamiento de busto, ambos, o cualquier otro de los que hace el doctor (liposucción, abdominoplastia, mommy makeover, rellenos, Botox, etc.). Si es lipectomía, guarda SIEMPRE la zona, 'lipectomía de cuello' o 'lipectomía de abdomen', nunca 'lipectomía' a secas, para que Karime no tenga que volver a preguntarlo."
+      when: "Cuando el contacto deje claro qué procedimiento le interesa: rejuvenecimiento facial, levantamiento de busto, ambos, o cualquier otro de los que hace el doctor (liposucción, abdominoplastia, mommy makeover, rellenos, toxina botulínica, etc.). Si es lipectomía, guarda SIEMPRE la zona, 'lipectomía de cuello' o 'lipectomía de abdomen', nunca 'lipectomía' a secas, para que Karime no tenga que volver a preguntarlo."
     - id: CUBYVyKyNw2sQsEH4z8H
       name: Motivo de consulta
       when: "Cuando la paciente cuente qué le gustaría lograr o mejorar, con sus propias palabras."
