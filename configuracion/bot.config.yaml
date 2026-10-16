@@ -293,9 +293,9 @@ video_resources:
     url: "https://www.instagram.com/reel/DcKkH9cRHZQ/?igsh=MWMyeXp0N2ppMTM5aA=="
 
 custom_fields:
-  # Lista basada en la ficha real que pidió el consultorio (Bloque B del
-  # cuestionario) — es lo mínimo que Karime necesita para tomar el caso sin
-  # tener que re-preguntar nada. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
+  # Desde el 15-oct-2026 el bot solo PIDE tres datos: nombre completo, edad y
+  # ciudad desde donde escribe (Domicilio). El resto de los campos se llenan
+  # solo si la paciente los da por su cuenta; lo demás lo completa Karime. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
   # una primera pasada y quedó sin usar, la reemplazó "Domicilio" — se puede
   # borrar a mano en GHL si se quiere, no se usa desde este archivo.
   fields:
@@ -313,13 +313,13 @@ custom_fields:
       when: "En cuanto tengas suficiente contexto para clasificar, guarda 'caliente' (lista para consulta, quiere agendar o ya pidió hablar con alguien), 'tibia' (interesada, hace preguntas concretas pero no ha pedido agendar) o 'fría' (apenas explorando, preguntas muy generales). Puedes actualizarlo si cambia durante la conversación."
     - id: LjVReDNX4OKduemrfaRb
       name: Edad
-      when: "Cuando el contacto mencione su edad de forma natural en la conversación (nunca la preguntes de forma directa tipo formulario, solo guárdala si la comparte por su cuenta o al platicar del procedimiento)."
+      when: "Cuando la paciente diga su edad. Es uno de los tres datos obligatorios de Fase 3, se pide directo."
     - id: Blgx1nsrfUQLI9W0kz4W
       name: Fecha de nacimiento
       when: "Si la paciente la comparte (no es obligatorio pedirla si ya tienes la edad aproximada)."
     - id: A0Emi9BguJ5lRqouH88m
       name: Domicilio
-      when: "Cuando la paciente mencione dónde vive, aunque sea solo la ciudad (útil sobre todo para pacientes foráneas)."
+      when: "Cuando la paciente diga desde qué ciudad escribe. Es uno de los tres datos obligatorios de Fase 3; basta con la ciudad, no pidas la dirección."
     - id: VuwBhPo6SqI76i2SA6RY
       name: Correo electrónico (paciente)
       when: "Si la paciente lo comparte, sobre todo relevante para valoración virtual (ahí se manda el link de pago)."
@@ -331,4 +331,4 @@ custom_fields:
       when: "Cuando la paciente mencione cómo se enteró del consultorio (si fue red social, especifica cuál)."
     - id: zBaLsSgeJWt8iiwx5A9f
       name: Preferencia de horario y días
-      when: "Cuando la paciente diga qué días u horarios le acomodan mejor para su consulta, para que Karime no tenga que volver a preguntarlo. Guarda exactamente lo que diga aunque la fecha no parezca válida (ej. un día que no existe en ese mes), no lo cuestiones ni pidas que lo corrija, eso lo resuelve Karime directamente."
+      when: "Solo si la paciente dice por su cuenta qué días u horarios le acomodan (nunca se lo preguntes). Guarda exactamente lo que diga, aunque sea vago o la fecha no exista, sin cuestionarlo ni pedir que lo confirme. Nunca detiene la escalación."
