@@ -161,3 +161,17 @@ export async function addTagsToContact(
     body: JSON.stringify({ tags }),
   });
 }
+
+/**
+ * Quita tags del contacto. Se usa para re-escalar: volver a poner un tag que
+ * el contacto ya tiene no dispara el workflow de "tag agregado" en GHL.
+ */
+export async function removeTagsFromContact(
+  contactId: string,
+  tags: string[]
+): Promise<void> {
+  await ghlFetch(`/contacts/${encodeURIComponent(contactId)}/tags`, {
+    method: 'DELETE',
+    body: JSON.stringify({ tags }),
+  });
+}

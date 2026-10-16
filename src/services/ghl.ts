@@ -64,10 +64,10 @@ export async function sendMessage(
  */
 export async function getContact(
   contactId: string
-): Promise<{ id: string; firstName: string; lastName: string; phone: string } | null> {
+): Promise<{ id: string; firstName: string; lastName: string; phone: string; tags?: string[] } | null> {
   try {
     const data = await ghlFetch(`/contacts/${contactId}`) as {
-      contact: { id: string; firstName: string; lastName: string; phone: string };
+      contact: { id: string; firstName: string; lastName: string; phone: string; tags?: string[] };
     };
     return data.contact ?? null;
   } catch {

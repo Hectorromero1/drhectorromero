@@ -16,6 +16,7 @@ import {
   createAppointment,
   getContactAppointments,
   addTagsToContact,
+  removeTagsFromContact,
   FreeSlot,
 } from '../services/ghl-calendar';
 import { transcribirAudio } from '../services/whisper';
@@ -450,10 +451,22 @@ async function handleEscalarAHumano(
     : 'sin motivo especificado';
 
   try {
+    // Si ya estaba escalada (ej. escribe que nadie la ha contactado), el tag
+    // ya existe y volver a agregarlo no dispara el workflow de aviso a la
+    // humana. Se quita y se vuelve a poner para que el aviso salga de nuevo.
+    const contacto = await getContact(contactId).catch(() => null);
+    const yaEscalada = !!contacto?.tags?.includes(cfg.escalation.tag);
+    if (yaEscalada) {
+      await removeTagsFromContact(contactId, [cfg.escalation.tag]).catch((e) =>
+        console.warn(`[tool:escalar_a_humano] quitar tag falló: ${(e as Error).message}`)
+      );
+    }
     await addTagsToContact(contactId, [cfg.escalation.tag]);
     await createNote(
       contactId,
-      `[ESCALACIÓN AUTOMÁTICA] El bot identificó que este contacto necesita atención humana. Motivo: ${motivoEscalacion}`
+      yaEscalada
+        ? `[RE-ESCALACIÓN] Este contacto ya se había pasado al equipo y volvió a escribir. Motivo: ${motivoEscalacion}`
+        : `[ESCALACIÓN AUTOMÁTICA] El bot identificó que este contacto necesita atención humana. Motivo: ${motivoEscalacion}`
     );
     // Auto-mueve la opportunity a la etapa configurada (best-effort).
     if (cfg.escalation.stage) {
