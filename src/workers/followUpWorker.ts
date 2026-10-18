@@ -39,6 +39,19 @@ import {
  * seguimiento que hacer") y el código lo mandaba tal cual por WhatsApp. */
 const NO_FOLLOW_UP_SENTINEL = 'NO_FOLLOW_UP';
 
+/** Sentinel para una paciente real que ya cerró la conversación ("lo pienso
+ * y yo me comunico", "ya me había dicho"). No se manda nada, pero a
+ * diferencia de NO_FOLLOW_UP el marca-perdido sigue en pie: la opportunity
+ * tiene que llegar a "No contestó" igual. */
+const NO_INSISTIR_SENTINEL = 'NO_INSISTIR';
+
+/** Mínimo de horas entre dos follow-ups a la misma conversación, aunque la
+ * paciente haya contestado en medio. Cada "gracias" de la paciente es un
+ * turno nuevo que reinicia follow_ups_sent y programa una tanda nueva; sin
+ * este tope, a una paciente que contestaba con cortesía le salieron 3
+ * recordatorios en 18h (Dr. Romero, 17-oct-2026: "ya van 4 veces"). */
+const FOLLOW_UP_MIN_GAP_HOURS = 48;
+
 interface FollowUpJobData {
   contactId: string;
   attempt: number;
@@ -158,14 +171,14 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
 
   // 2. Cargar conversación
   const r = await db.query(
-    `SELECT messages, metadata, contact_name, follow_ups_sent, last_bot_message_at FROM conversations WHERE contact_id = $1`,
+    `SELECT messages, metadata, contact_name, follow_ups_sent, last_bot_message_at, last_follow_up_at FROM conversations WHERE contact_id = $1`,
     [contactId]
   );
   if (r.rows.length === 0) {
     console.log(`[follow-up] sin conversación | contact=${contactId}`);
     return;
   }
-  const { messages, metadata, contact_name, follow_ups_sent, last_bot_message_at } = r.rows[0];
+  const { messages, metadata, contact_name, follow_ups_sent, last_bot_message_at, last_follow_up_at } = r.rows[0];
   const history: ChatMessage[] = messages || [];
 
   // 3. Si el bot escribió DESPUÉS de programar este job, esta cadencia está stale
@@ -186,6 +199,15 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
   // 5. Idempotencia: si ya enviamos un follow-up >= attempt, skip
   if ((follow_ups_sent ?? 0) >= attempt) {
     console.log(`[follow-up] ya enviado attempt=${attempt} | contact=${contactId}`);
+    return;
+  }
+
+  // 5b. Tope entre follow-ups: si ya le salió uno hace menos de
+  // FOLLOW_UP_MIN_GAP_HOURS, no se manda otro aunque haya contestado en medio.
+  const lastFollowUpMs = last_follow_up_at ? new Date(last_follow_up_at).getTime() : 0;
+  const horasDesdeFollowUp = (Date.now() - lastFollowUpMs) / HOUR_MS;
+  if (horasDesdeFollowUp < FOLLOW_UP_MIN_GAP_HOURS) {
+    console.log(`[follow-up] ya hubo uno hace ${horasDesdeFollowUp.toFixed(1)}h, no se insiste | contact=${contactId}`);
     return;
   }
 
@@ -219,7 +241,12 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
     text = renderFollowUpMessage(template, contact_name ?? null);
   }
 
-  if (text.trim() === NO_FOLLOW_UP_SENTINEL) {
+  if (text.includes(NO_INSISTIR_SENTINEL)) {
+    console.log(`[follow-up] la paciente ya cerró la conversación, no se insiste | contact=${contactId}`);
+    return;
+  }
+
+  if (text.includes(NO_FOLLOW_UP_SENTINEL)) {
     console.log(`[follow-up] contacto no parece ser un paciente real, se cancela el seguimiento | contact=${contactId}`);
     await cancelarFollowUpsPendientes(contactId);
     return;
@@ -252,6 +279,7 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
     `UPDATE conversations
      SET messages = $1::jsonb,
          follow_ups_sent = $2,
+         last_follow_up_at = now(),
          last_activity = now()
      WHERE contact_id = $3`,
     [JSON.stringify(newMessages), attempt, contactId]
