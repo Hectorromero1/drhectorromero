@@ -15,7 +15,7 @@
 bot:
   # Se presenta como "asistente virtual" — nombre exacto pedido por el
   # doctor en el cuestionario de configuración (Bloque I). Nunca un nombre
-  # propio de persona, para no confundir con Karime (la asistente humana).
+  # propio de persona, para no confundir con Alexandra (la asistente humana).
   name: Asistente Virtual
 
   # Neutral a propósito (no asume género): el saludo inicial nunca sabe
@@ -40,7 +40,7 @@ business:
     Horario de atención del consultorio (WhatsApp): lunes a viernes 9:00am-7:00pm,
     sábados 9:00am-3:00pm. Horario de citas de valoración de primera vez:
     lunes a viernes 3:30pm-7:00pm, sábados 10:00am-1:00pm.
-    Asistente humana que recibe los casos calificados: Karime, por el mismo
+    Asistente humana que recibe los casos calificados: Alexandra, por el mismo
     WhatsApp Business del consultorio, disponible 9:00am-7:00pm. Se compromete
     a contactar a la paciente dentro de los primeros 30 minutos en horario
     laboral.
@@ -159,7 +159,7 @@ follow_ups:
     - "Hola {nombre}, le escribe la asistente virtual del Dr. Romero. Pudo ver la información que le mandamos? Cualquier duda, con gusto la resolvemos por aquí"
 
   # Etapa desde la que el seguimiento tiene sentido. Si la opportunity ya no
-  # está aquí (Karime la movió a mano, o el bot la escaló a "Calificada"), el
+  # está aquí (Alexandra la movió a mano, o el bot la escaló a "Calificada"), el
   # follow-up y el marca-perdido se saltan. Sin esta línea, el job de las 22h
   # podía jalar de vuelta a "No contestó" a una paciente que el equipo ya
   # estaba atendiendo, y eso además le dispararía el Workflow de plantillas
@@ -183,7 +183,7 @@ escalation:
 # Cuando del otro lado hay una máquina (otro bot de WhatsApp), los dos se
 # responden infinitamente y cada vuelta cuesta tokens. Esto lo detecta solo y
 # manda el contacto a la lista negra permanente: a partir de ahí se ignora
-# todo lo que mande, en silencio, sin tag y sin avisar a Karime.
+# todo lo que mande, en silencio, sin tag y sin avisar a Alexandra.
 #
 # Va activo por defecto aunque no exista este bloque. Para apagarlo:
 #   loop_guard:
@@ -299,7 +299,7 @@ video_resources:
 custom_fields:
   # Desde el 15-oct-2026 el bot solo PIDE tres datos: nombre completo, edad y
   # ciudad desde donde escribe (Domicilio). El resto de los campos se llenan
-  # solo si la paciente los da por su cuenta; lo demás lo completa Karime. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
+  # solo si la paciente los da por su cuenta; lo demás lo completa Alexandra. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
   # una primera pasada y quedó sin usar, la reemplazó "Domicilio" — se puede
   # borrar a mano en GHL si se quiere, no se usa desde este archivo.
   fields:
@@ -308,7 +308,7 @@ custom_fields:
       when: "En cuanto la paciente diga su nombre completo. Si solo da su nombre de pila, guarda lo que tengas y actualízalo si después da el apellido."
     - id: bGJYZqTt5dzHHw49GkvM
       name: Procedimiento de interés
-      when: "Cuando el contacto deje claro qué procedimiento le interesa: rejuvenecimiento facial, levantamiento de busto, ambos, o cualquier otro de los que hace el doctor (liposucción, abdominoplastia, mommy makeover, rellenos, toxina botulínica, etc.). Si es lipectomía, guarda SIEMPRE la zona, 'lipectomía de cuello' o 'lipectomía de abdomen', nunca 'lipectomía' a secas, para que Karime no tenga que volver a preguntarlo."
+      when: "Cuando el contacto deje claro qué procedimiento le interesa: rejuvenecimiento facial, levantamiento de busto, ambos, o cualquier otro de los que hace el doctor (liposucción, abdominoplastia, mommy makeover, rellenos, toxina botulínica, etc.). Si es lipectomía, guarda SIEMPRE la zona, 'lipectomía de cuello' o 'lipectomía de abdomen', nunca 'lipectomía' a secas, para que Alexandra no tenga que volver a preguntarlo."
     - id: CUBYVyKyNw2sQsEH4z8H
       name: Motivo de consulta
       when: "Cuando la paciente cuente qué le gustaría lograr o mejorar, con sus propias palabras."
