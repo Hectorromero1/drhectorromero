@@ -90,6 +90,9 @@ const FollowUpsSchema = z
     // DEBEN ser < 24: WhatsApp solo permite texto libre dentro de las 24h
     // siguientes al último mensaje del cliente.
     cadence_hours: z.array(z.number().positive().max(23)).min(1).max(3).default([3, 9]),
+    // Mínimo de horas entre follow-ups de tandas distintas (E186): que el
+    // contacto conteste "gracias" no le compra otro recordatorio.
+    min_gap_hours: z.number().positive().default(48),
     // Textos predefinidos de cada follow-up — uno por intento de la cadencia.
     // Soportan {nombre} (primer nombre del contacto, si se conoce).
     messages: z.array(z.string().min(1)).min(1).max(3),

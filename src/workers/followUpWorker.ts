@@ -45,13 +45,6 @@ const NO_FOLLOW_UP_SENTINEL = 'NO_FOLLOW_UP';
  * tiene que llegar a "No contestó" igual. */
 const NO_INSISTIR_SENTINEL = 'NO_INSISTIR';
 
-/** Mínimo de horas entre dos follow-ups a la misma conversación, aunque la
- * paciente haya contestado en medio. Cada "gracias" de la paciente es un
- * turno nuevo que reinicia follow_ups_sent y programa una tanda nueva; sin
- * este tope, a una paciente que contestaba con cortesía le salieron 3
- * recordatorios en 18h (Dr. Romero, 17-oct-2026: "ya van 4 veces"). */
-const FOLLOW_UP_MIN_GAP_HOURS = 48;
-
 interface FollowUpJobData {
   contactId: string;
   attempt: number;
@@ -202,11 +195,14 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
     return;
   }
 
-  // 5b. Tope entre follow-ups: si ya le salió uno hace menos de
-  // FOLLOW_UP_MIN_GAP_HOURS, no se manda otro aunque haya contestado en medio.
+  // 5b. Tope entre tandas (E186): cada respuesta del contacto programa una
+  // tanda nueva, así que si ya le salió un follow-up de una tanda ANTERIOR
+  // hace menos de min_gap_hours, no se manda otro. El 2º toque de la misma
+  // tanda sale después de scheduledAt y no se bloquea. Caso real: a una
+  // paciente que contestaba "gracias" le salieron 3 en 18h ("ya van 4 veces").
   const lastFollowUpMs = last_follow_up_at ? new Date(last_follow_up_at).getTime() : 0;
   const horasDesdeFollowUp = (Date.now() - lastFollowUpMs) / HOUR_MS;
-  if (horasDesdeFollowUp < FOLLOW_UP_MIN_GAP_HOURS) {
+  if (lastFollowUpMs && lastFollowUpMs < scheduledAt && horasDesdeFollowUp < fu.min_gap_hours) {
     console.log(`[follow-up] ya hubo uno hace ${horasDesdeFollowUp.toFixed(1)}h, no se insiste | contact=${contactId}`);
     return;
   }

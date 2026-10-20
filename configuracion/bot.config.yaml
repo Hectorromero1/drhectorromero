@@ -147,6 +147,10 @@ follow_ups:
   # validación lo dice explícito). Para volver a dos, se agregan los dos de
   # vuelta, no solo la hora.
   cadence_hours: [3]
+  # Mínimo de horas entre follow-ups de tandas distintas. Cada respuesta del
+  # contacto (aunque sea "gracias") programa una tanda nueva; sin este tope a
+  # una paciente le salieron 3 recordatorios en 18h (E186, 17-oct-2026).
+  min_gap_hours: 48
   # Respaldo: solo se usa si la generación contextual con Claude falla. En los
   # logs de producción no ha hecho falta ni una vez (los 29 envíos salieron
   # `generado contextual`), pero se queda como red.
