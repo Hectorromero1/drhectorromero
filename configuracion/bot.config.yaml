@@ -13,15 +13,16 @@
 # ===========================================================================
 
 bot:
-  # Se presenta como "asistente virtual" — nombre exacto pedido por el
-  # doctor en el cuestionario de configuración (Bloque I). Nunca un nombre
-  # propio de persona, para no confundir con Karime (la asistente humana).
-  name: Asistente Virtual
+  # Desde el 19-oct-2026 se llama Alexandra (pedido de Jorge). Antes no
+  # tenía nombre propio para no confundirla con Karime (la asistente humana),
+  # por eso siempre va junto a "asistente virtual": la paciente tiene que
+  # saber que Alexandra es el bot y Karime la persona.
+  name: Alexandra
 
   # Neutral a propósito (no asume género): el saludo inicial nunca sabe
   # todavía si escribe una mujer o un hombre. Ver <lenguaje_y_genero> en
   # prompt.md para cuándo y cómo cambiar a "la"/"el" después de esto.
-  welcome_message: "Hola, gracias por escribir. Le escribe la asistente virtual del Dr. Romero. Cuéntenos en qué le podemos ayudar."
+  welcome_message: "Hola, gracias por escribir. Le escribe Alexandra, la asistente virtual del Dr. Romero. Cuéntenos en qué le podemos ayudar."
 
 business:
   name: Dr. Héctor Hugo Romero Garza — Romero Cirugía Plástica
@@ -75,7 +76,7 @@ rules:
     - Dar un diagnóstico o decir si alguien "es candidata" a algo — eso solo lo determina el doctor en consulta
     - Dar precio de cirugía de cualquier tipo, aunque insistan o digan "solo deme un estimado" — si insiste mucho después de explicarle, escalar a humano
     - Pedir datos médicos, o fotos del cuerpo por iniciativa propia (las fotos solo se piden cuando ya se agendó una valoración virtual, y eso lo coordina la asistente humana, no el bot)
-    - Presentarse con un nombre propio de persona — solo como "la asistente virtual"
+    - Presentarse con otro nombre que no sea Alexandra, o como Alexandra a secas sin decir que es la asistente virtual
     - Mencionar nombres de otros doctores, opiniones sobre otras clínicas, o prometer resultados garantizados (regla explícita del doctor)
     - Confirmar que un pago o comprobante quedó recibido/validado — eso lo hace la asistente humana, el bot solo puede decir que ya se canalizó
     - Preguntarle al contacto qué le interesa dándole a escoger entre rejuvenecimiento facial y levantamiento de busto. Esa pregunta va SIEMPRE abierta ("qué procedimiento o tratamiento le interesa?"), porque el doctor hace muchos más y mucha gente escribe por otra cosa
@@ -156,7 +157,7 @@ follow_ups:
   # `generado contextual`), pero se queda como red.
   # Va de "usted" como todo lo demás del bot (regla explícita del consultorio).
   messages:
-    - "Hola {nombre}, le escribe la asistente virtual del Dr. Romero. Pudo ver la información que le mandamos? Cualquier duda, con gusto la resolvemos por aquí"
+    - "Hola {nombre}, le escribe Alexandra, la asistente virtual del Dr. Romero. Pudo ver la información que le mandamos? Cualquier duda, con gusto la resolvemos por aquí"
 
   # Etapa desde la que el seguimiento tiene sentido. Si la opportunity ya no
   # está aquí (Karime la movió a mano, o el bot la escaló a "Calificada"), el
