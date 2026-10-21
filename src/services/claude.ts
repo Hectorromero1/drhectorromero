@@ -373,6 +373,8 @@ export interface ClaudeResponse {
   text: string;
   toolCalls: ToolCallResult[];
   stopReason: string;
+  /** true si meta-guard tiró al menos un texto del modelo en este turno. */
+  descartado: boolean;
 }
 
 /**
@@ -464,6 +466,7 @@ export async function getClaudeResponse(
 
   const toolCalls: ToolCallResult[] = [];
   let finalText = '';
+  let descartado = false;
   let lastStopReason = 'unknown';
   let currentMessages = messages;
   let iterations = 0;
@@ -515,6 +518,7 @@ export async function getClaudeResponse(
       const motivo = motivoMetaComentario(turnText);
       if (motivo) {
         console.warn(`[meta-guard] respuesta descartada (${motivo}) | texto=${JSON.stringify(turnText.slice(0, 300))}`);
+        descartado = true;
       } else {
         finalText = turnText;
       }
@@ -550,7 +554,7 @@ export async function getClaudeResponse(
     console.warn(`[claude] Hit max iterations (${MAX_ITERATIONS}) without final text`);
   }
 
-  return { text: finalText, toolCalls, stopReason: lastStopReason };
+  return { text: finalText, toolCalls, stopReason: lastStopReason, descartado };
 }
 
 /**

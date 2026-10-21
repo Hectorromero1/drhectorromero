@@ -761,6 +761,24 @@ export async function startMessageWorker(concurrency = 5) {
         );
         replyText = result.text;
         toolCalls = result.toolCalls;
+
+        // Nunca silencio (E131 de errores-bot): si meta-guard tiró la respuesta
+        // y no quedó ningún texto para la paciente, le llega una línea neutral y
+        // el caso pasa a Alexandra, que es quien sí puede retomarlo.
+        if (result.descartado && !replyText.trim()) {
+          const yaEscalo = toolCalls.some((t) => t.toolName === 'escalar_a_humano');
+          console.warn(`[meta-guard] respuesta vacía tras descartar — línea neutral${yaEscalo ? '' : ' y se escala'} | contact=${contactId}`);
+          replyText = yaEscalo
+            ? 'Muchas gracias, ya tengo sus datos 😊 La asistente del Dr. Romero se va a comunicar con usted para coordinar su consulta.'
+            : 'Muchas gracias por su mensaje 😊 En un momento la asistente del Dr. Romero le confirma por aquí.';
+          if (!yaEscalo) {
+            await handleTool(
+              'escalar_a_humano',
+              { motivo_escalacion: 'El bot no generó una respuesta que se pudiera mandar. Revisar la conversación y contestar a mano.' },
+              contactId
+            ).catch(() => {});
+          }
+        }
       } catch (err) {
         console.error(`[worker] Claude falló, restaurando pending y reintentando | contact=${contactId}: ${(err as Error).message}`);
         await db.query(
