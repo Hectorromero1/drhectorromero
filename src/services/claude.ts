@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ChatMessage, GhlChannel } from '../types';
 import { buildSystemPrompt } from '../prompts/system';
 import { getConfig, BotConfig } from '../config';
+import { motivoMetaComentario } from '../meta-guard';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -506,7 +507,18 @@ export async function getClaudeResponse(
       .map((b) => (b as Anthropic.TextBlock).text)
       .join('')
       .trim();
-    if (turnText) finalText = turnText;
+    // Después de una tool, el modelo a veces narra lo que hizo ("la escalación
+    // se completó exitosamente, la paciente ya está clasificada…") en vez de
+    // hablarle a la paciente. Ese texto no reemplaza al último que sí era para
+    // ella; si nunca hubo uno, la respuesta queda vacía y no se manda nada.
+    if (turnText) {
+      const motivo = motivoMetaComentario(turnText);
+      if (motivo) {
+        console.warn(`[meta-guard] respuesta descartada (${motivo}) | texto=${JSON.stringify(turnText.slice(0, 300))}`);
+      } else {
+        finalText = turnText;
+      }
+    }
 
     if (response.stop_reason === 'end_turn') break;
 
@@ -565,7 +577,7 @@ export async function generateFollowUpMessage(
   const instruction =
     `[INSTRUCCIÓN INTERNA DE SEGUIMIENTO — esto NO es un mensaje del contacto, no lo trates como tal ni le respondas como si él hubiera escrito esto]\n` +
     `El contacto dejó de responder hace aproximadamente ${Math.round(hoursIdle)} horas. Este es tu mensaje de seguimiento #${attempt} de ${totalAttempts} máximo antes de dejarlo en paz.\n` +
-    `Genera SOLO el texto exacto que le vas a mandar por WhatsApp — nada de explicaciones tuyas, nada de herramientas, nada de meta-comentarios.\n` +
+    `Escribe el texto exacto que le vas a mandar por WhatsApp dentro de <mensaje></mensaje>. Solo lo que va dentro de esas etiquetas le llega a la paciente; si no las usas, no se manda nada. Dentro va únicamente el mensaje, escrito para ella, de "usted".\n` +
     `Basándote en TODA la conversación de arriba, retoma exactamente lo que quedó pendiente: si faltaba alguno de los datos obligatorios que pide el prompt, pídelo directo; si estaba viendo información de algo específico y no llegó a cerrar, retómalo conectado a lo que preguntó. Nunca ofrezcas ni pidas confirmar días u horarios. NO mandes un saludo genérico tipo "¿pudiste ver la información?" a menos que genuinamente eso sea lo único que quedó pendiente — sé específico al contexto real de esta conversación.\n` +
     `Si por el contexto de la conversación es claro que este contacto NO es una paciente real (ej. es un proveedor ofreciendo un servicio, publicidad, spam, un número equivocado, alguien buscando trabajo), no generes ningún mensaje de seguimiento. En ese caso responde ÚNICAMENTE con el texto exacto NO_FOLLOW_UP (sin comillas, sin explicación, sin nada más alrededor) — nunca expliques tu razonamiento como si fuera el mensaje a enviar.\n` +
     `Si es una paciente real pero ya cerró la conversación, tampoco le escribas: dijo que lo va a pensar, que ella se comunica o que por ahora no; ya se despidió y no quedó ninguna pregunta suya sin responder; ya le habías mandado un recordatorio antes y no retomó el tema; o se quejó de que le escriben de más. En ese caso responde ÚNICAMENTE con el texto exacto NO_INSISTIR (sin comillas, sin nada más). Un recordatorio que solo repite "aquí estamos cuando se decida" no aporta nada y se siente como insistencia.`;
@@ -600,6 +612,20 @@ export async function generateFollowUpMessage(
     .map((b) => (b as Anthropic.TextBlock).text)
     .join('')
     .trim();
+}
+
+/**
+ * Saca el mensaje de seguimiento de entre <mensaje></mensaje>. Todo lo que el
+ * modelo escriba fuera de las etiquetas (su análisis, su evaluación) se tira.
+ * Sin etiquetas devuelve null y el follow-up no sale: antes se mandaba la
+ * respuesta completa, y a una paciente le llegó el "Análisis de la
+ * conversación" entero (21-oct-2026).
+ */
+export function extraerMensajeSeguimiento(raw: string): string | null {
+  const matches = [...raw.matchAll(/<mensaje>([\s\S]*?)<\/mensaje>/gi)];
+  if (matches.length === 0) return null;
+  const texto = matches[matches.length - 1][1].trim();
+  return texto || null;
 }
 
 /**

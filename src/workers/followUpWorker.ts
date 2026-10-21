@@ -21,7 +21,8 @@ import { boss } from '../queue';
 import { db } from '../db/client';
 import { ChatMessage, GhlChannel } from '../types';
 import { findContactOpportunity, moveOpportunityToStage, sendMessage } from '../services/ghl';
-import { generateFollowUpMessage } from '../services/claude';
+import { generateFollowUpMessage, extraerMensajeSeguimiento } from '../services/claude';
+import { motivoMetaComentario } from '../meta-guard';
 import { contactoBloqueadoAsync } from '../blocklist';
 import { getConfig } from '../config';
 import {
@@ -227,10 +228,14 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
   }
 
   let text: string;
+  // Solo lo generado por Claude pasa por extraerMensajeSeguimiento; el
+  // respaldo del yaml no trae etiquetas.
+  let generado = false;
   try {
     const horasDesdeClienteReal = (Date.now() - lastUserMs) / HOUR_MS;
     text = await generateFollowUpMessage(history, attempt, fu.cadence_hours.length, horasDesdeClienteReal);
     if (!text) throw new Error('respuesta vacía');
+    generado = true;
     console.log(`[follow-up] generado contextual | contact=${contactId} attempt=${attempt}`);
   } catch (e) {
     console.warn(`[follow-up] generación contextual falló, uso respaldo del yaml: ${(e as Error).message}`);
@@ -245,6 +250,21 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
   if (text.includes(NO_FOLLOW_UP_SENTINEL)) {
     console.log(`[follow-up] contacto no parece ser un paciente real, se cancela el seguimiento | contact=${contactId}`);
     await cancelarFollowUpsPendientes(contactId);
+    return;
+  }
+
+  if (generado) {
+    const mensaje = extraerMensajeSeguimiento(text);
+    if (!mensaje) {
+      console.warn(`[follow-up] descartado, sin <mensaje> en la respuesta | contact=${contactId} crudo=${JSON.stringify(text.slice(0, 300))}`);
+      return;
+    }
+    text = mensaje;
+  }
+
+  const motivo = motivoMetaComentario(text);
+  if (motivo) {
+    console.warn(`[meta-guard] follow-up descartado (${motivo}) | contact=${contactId} texto=${JSON.stringify(text.slice(0, 300))}`);
     return;
   }
 
