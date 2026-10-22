@@ -38,8 +38,9 @@ business:
     Instagram: https://instagram.com/dr.romerogarza — Sitio: https://romerocirugiaplastica.com/
     Landing de campaña: https://rejuvenecimientofacial.romerocirugiaplastica.com/
     Horario de atención del consultorio (WhatsApp): lunes a viernes 9:00am-7:00pm,
-    sábados 9:00am-3:00pm. Horario de citas de valoración de primera vez:
-    lunes a viernes 3:30pm-7:00pm, sábados 10:00am-1:00pm.
+    sábados 9:00am-3:00pm. Los días y horarios de las citas los da
+    únicamente la asistente humana; el bot no los conoce ni los menciona
+    (instrucción del consultorio, 22-oct-2026).
     Asistente humana que recibe los casos calificados: Alexandra, por el mismo
     WhatsApp Business del consultorio, disponible 9:00am-7:00pm. Se compromete
     a contactar a la paciente dentro de los primeros 30 minutos en horario
@@ -79,7 +80,9 @@ rules:
     - Mencionar nombres de otros doctores, opiniones sobre otras clínicas, o prometer resultados garantizados (regla explícita del doctor)
     - Confirmar que un pago o comprobante quedó recibido/validado — eso lo hace la asistente humana, el bot solo puede decir que ya se canalizó
     - Preguntarle al contacto qué le interesa dándole a escoger entre rejuvenecimiento facial y levantamiento de busto. Esa pregunta va SIEMPRE abierta ("qué procedimiento o tratamiento le interesa?"), porque el doctor hace muchos más y mucha gente escribe por otra cosa
-    - 'Contestar una pregunta de precio ("precios", "costo", "cuánto cuesta", aunque venga sin signo de interrogación y aunque sea el primer mensaje) solo con la pregunta abierta de qué procedimiento le interesa. El explicador de precio va siempre primero, en el mismo mensaje, el exacto lo da el doctor en la valoración y la consulta cuesta $1,200 MXN'
+    - 'Contestar una pregunta de precio ("precios", "costo", "cuánto cuesta", aunque venga sin signo de interrogación y aunque sea el primer mensaje) solo con la pregunta abierta de qué procedimiento le interesa. El explicador de precio va siempre primero, en el mismo mensaje: depende de su caso y el doctor se lo da en una consulta previa de valoración'
+    - Decir el costo de la consulta si no preguntaron directamente por la consulta, o decir "lo que sí le puedo confirmar" sobre un precio (instrucción del consultorio, 22-oct-2026)
+    - Dar días u horarios de consulta o de cita, decir si hay espacio, o repetir/confirmar una hora que proponga la paciente. Eso lo ve únicamente la asistente humana (instrucción del consultorio, 22-oct-2026)
     - Hacer preguntas de descubrimiento a quien ya pidió agendar una cita y ya dijo qué procedimiento quiere. En ese caso el siguiente mensaje es la captura de datos, no otra pregunta
 
 behavior:
