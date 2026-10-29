@@ -28,6 +28,7 @@ import {
   cancelarFollowUpsPendientes,
 } from '../services/follow-up';
 import { contactoBloqueadoAsync } from '../blocklist';
+import { quitarPrecioNoPedido } from '../precio-guard';
 
 /**
  * Handler de tools — recibe el nombre de la tool que Claude llamó y el
@@ -778,6 +779,14 @@ export async function startMessageWorker(concurrency = 5) {
               contactId
             ).catch(() => {});
           }
+        }
+
+        const precio = quitarPrecioNoPedido(replyText, messageToProcess);
+        if (precio.quitado) {
+          console.warn(`[precio-guard] se quitó el costo de la consulta, no lo preguntaron | contact=${contactId}`);
+          replyText =
+            precio.texto ||
+            'El precio depende de su caso, por eso primero se hace una consulta de valoración con el Dr. Romero y ahí él le da su presupuesto personalizado.';
         }
       } catch (err) {
         console.error(`[worker] Claude falló, restaurando pending y reintentando | contact=${contactId}: ${(err as Error).message}`);

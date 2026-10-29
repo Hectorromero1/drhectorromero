@@ -23,6 +23,7 @@ import { ChatMessage, GhlChannel } from '../types';
 import { findContactOpportunity, moveOpportunityToStage, sendMessage } from '../services/ghl';
 import { generateFollowUpMessage, extraerMensajeSeguimiento } from '../services/claude';
 import { motivoMetaComentario } from '../meta-guard';
+import { quitarPrecioNoPedido } from '../precio-guard';
 import { contactoBloqueadoAsync } from '../blocklist';
 import { getConfig } from '../config';
 import {
@@ -260,6 +261,12 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
       return;
     }
     text = mensaje;
+  }
+
+  const precio = quitarPrecioNoPedido(text, '');
+  if (precio.quitado) {
+    console.warn(`[precio-guard] se quitó el costo de la consulta del follow-up | contact=${contactId}`);
+    text = precio.texto;
   }
 
   const motivo = motivoMetaComentario(text);
