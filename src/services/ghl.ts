@@ -357,14 +357,19 @@ export async function findContactOpportunity(
 /**
  * Mueve una opportunity a la etapa especificada. Lanza si la API falla
  * (el caller debe capturar y devolver un error string al modelo).
+ *
+ * `status` opcional: cuando la paciente vuelve a escribir, el bot la mueve con
+ * 'open' para reabrir una oportunidad que un workflow de GHL marcó como perdida;
+ * si no, se queda "lost" y el equipo no la ve en sus vistas de abiertas.
  */
 export async function moveOpportunityToStage(
   opportunityId: string,
-  pipelineStageId: string
+  pipelineStageId: string,
+  status?: 'open'
 ): Promise<void> {
   await ghlFetch(`/opportunities/${encodeURIComponent(opportunityId)}`, {
     method: 'PUT',
     headers: { 'Version': OPP_API_VERSION },
-    body: JSON.stringify({ pipelineStageId }),
+    body: JSON.stringify(status ? { pipelineStageId, status } : { pipelineStageId }),
   });
 }

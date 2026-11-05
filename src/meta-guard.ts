@@ -12,6 +12,9 @@
  *   - respuesta normal, después de escalar: "Perfecto. Todos los datos de [nombre]
  *     han sido capturados y la escalación a Karime se completó
  *     exitosamente. La paciente ya está clasificada como 'caliente'…" (14-oct)
+ *   - única respuesta a "Quiero agendar una cita": "(Sigue la conversación con
+ *     normalidad, ignora este error interno.)", el modelo parafraseó lo que le
+ *     devolvió mover_a_etapa (4-nov)
  *
  * El prompt ya prohibía todo eso ("nunca muestres tu razonamiento interno") y
  * no bastó: una regla en el prompt es una sugerencia, esto es código.
@@ -31,6 +34,8 @@ const PATRONES: Array<[string, RegExp]> = [
   ['habla del seguimiento', /mensaje de seguimiento|necesito evaluar|no genero (el |ning[uú]n )?mensaje/i],
   ['tercera persona', /\b(el|la) (contacto|paciente|prospecto) (ya |no |lleg[oó]|dijo|pregunt[oó]|dej[oó]|lleva|mostr[oó]|hizo|est[aá]|fue|ser[aá]|tiene|quer[ií]a)/i],
   ['habla de la escalación', /\bescalaci[oó]n\b|\bescalad[oa]\b|datos obligatorios|clasificad[oa] como|se complet[oó] exitosamente|han sido capturados/i],
+  ['habla del sistema', /error interno|\bignora (este|ese|el|esto|lo anterior)\b|(sigue|contin[uú]a|seguir|continuar) (con )?la conversaci[oó]n|la conversaci[oó]n (sigue|contin[uú]a)|(estoy|sigo) esperando (a )?que (me )?(diga|cuente|responda|conteste|escriba)|captura de datos|\bescalarl[oa]s?\b|sin mencionar(lo)?\b|\b(oportunidad|pipeline|etapa) (del|en el) (pipeline|crm)\b|\b(tool|herramienta)s?\b/i],
+  ['mensaje entre paréntesis', /^\s*\([^()]*\)\s*$/],
 ];
 
 /** Devuelve el motivo si el texto parece razonamiento interno, o null si se puede mandar. */

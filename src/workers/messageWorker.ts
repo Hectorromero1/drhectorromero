@@ -36,8 +36,12 @@ import { quitarPrecioNoPedido } from '../precio-guard';
  * (típicamente JSON) que Claude verá como tool_result.
  *
  * Por contrato: este handler NUNCA debe lanzar. Si algo falla, retorna un
- * JSON con `error` y un `message` legible para que el modelo decida cómo
- * reaccionar (típicamente "continúa la conversación normalmente").
+ * JSON con un código de `error`.
+ *
+ * Un tool_result nunca lleva instrucciones en prosa ("continúa la
+ * conversación normalmente"): el modelo las parafrasea y se las manda a la
+ * paciente. Le llegó "(Sigue la conversación con normalidad, ignora este error
+ * interno.)" como única respuesta a "Quiero agendar una cita" (4-nov-2026).
  */
 async function handleTool(
   name: string,
@@ -46,7 +50,7 @@ async function handleTool(
 ): Promise<string> {
   switch (name) {
     case 'mover_a_etapa':
-      return handleMoverAEtapa(input, contactId);
+      return soloParaElSistema(name, await handleMoverAEtapa(input, contactId));
     case 'consultar_disponibilidad':
       return handleConsultarDisponibilidad(input);
     case 'agendar_cita':
@@ -56,10 +60,30 @@ async function handleTool(
     case 'escalar_a_humano':
       return handleEscalarAHumano(input, contactId);
     case 'actualizar_campo':
-      return handleActualizarCampo(input, contactId);
+      return soloParaElSistema(name, await handleActualizarCampo(input, contactId));
   }
   console.warn(`[tool] No implementada: ${name} input=${JSON.stringify(input)}`);
   return JSON.stringify({ error: 'tool_not_implemented', tool: name });
+}
+
+/** Errores de la llamada misma, que el modelo sí puede corregir en el acto. */
+const ERRORES_CORREGIBLES = new Set(['invalid_stage', 'invalid_field', 'empty_value']);
+
+/**
+ * mover_a_etapa y actualizar_campo son internas: la paciente no ve su efecto y
+ * el modelo no puede hacer nada útil si fallan. Así que el modelo solo ve
+ * {"ok":true}, salvo un error de la llamada que pueda corregir. Lo demás
+ * (sin oportunidad, etapa bloqueada, API caída) se queda en logs.
+ */
+function soloParaElSistema(tool: string, output: string): string {
+  try {
+    const r = JSON.parse(output) as { error?: string };
+    if (r.error && ERRORES_CORREGIBLES.has(r.error)) return output;
+    if (r.error) console.warn(`[tool:${tool}] ${r.error} (el modelo ve ok) | ${output.slice(0, 200)}`);
+  } catch {
+    /* salida no-JSON: también se oculta */
+  }
+  return JSON.stringify({ ok: true });
 }
 
 /**
@@ -100,7 +124,7 @@ async function autoMoveStage(contactId: string, stageName: string): Promise<void
       console.log(`[pipeline:auto] ya en "${stageName}" | contact=${contactId}`);
       return;
     }
-    await moveOpportunityToStage(chosen.id, stage.id);
+    await moveOpportunityToStage(chosen.id, stage.id, 'open');
     console.log(`[pipeline:auto] movido | contact=${contactId} opp=${chosen.id} → "${stageName}"`);
   } catch (err) {
     console.warn(`[pipeline:auto] error | contact=${contactId} → "${stageName}": ${(err as Error).message}`);
@@ -481,7 +505,6 @@ async function handleEscalarAHumano(
     console.error(`[tool:escalar_a_humano] error: ${(err as Error).message}`);
     return JSON.stringify({
       error: 'api_error',
-      message: 'No se pudo notificar al equipo automáticamente. Continúa la conversación con calidez.',
     });
   }
 }
@@ -492,8 +515,8 @@ async function handleEscalarAHumano(
  * Defensas:
  *   - El SDK ya validó que `campo` está en el enum del input_schema.
  *   - Re-validamos contra el yaml por si cambió en runtime.
- *   - Best-effort: si la API de GHL falla, el modelo recibe un error string
- *     y sigue conversando sin mencionarlo.
+ *   - Best-effort: si la API de GHL falla, se loguea y el modelo solo ve
+ *     {"ok":true} (ver soloParaElSistema).
  */
 async function handleActualizarCampo(
   input: Record<string, unknown>,
@@ -526,10 +549,7 @@ async function handleActualizarCampo(
     return JSON.stringify({ ok: true, campo, valor });
   } catch (err) {
     console.error(`[tool:actualizar_campo] API error: ${(err as Error).message}`);
-    return JSON.stringify({
-      error: 'api_error',
-      message: 'No se pudo guardar el campo. Continúa la conversación normalmente.',
-    });
+    return JSON.stringify({ error: 'api_error' });
   }
 }
 
@@ -539,8 +559,8 @@ async function handleActualizarCampo(
  * Defensas:
  *   - El SDK ya validó que `etapa` está en el enum del input_schema.
  *   - Re-validamos contra el yaml por si el yaml cambió en runtime.
- *   - Si no hay opportunity en el pipeline, devolvemos un error que le dice
- *     al modelo que siga conversando sin mencionarlo.
+ *   - Si no hay opportunity en el pipeline, se loguea y el modelo solo ve
+ *     {"ok":true} (ver soloParaElSistema).
  *   - Idempotencia: si la opp ya está en la etapa target, no llamamos PUT.
  *   - Si hay múltiples opportunities en el pipeline (raro), movemos la más
  *     reciente y logueamos warning con todos los IDs.
@@ -575,12 +595,7 @@ async function handleMoverAEtapa(
 
   if (opps.length === 0) {
     console.warn(`[tool:mover_a_etapa] sin opportunity | contact=${contactId} pipeline=${cfg.pipeline.id}`);
-    return JSON.stringify({
-      error: 'no_opportunity',
-      message:
-        `El contacto no tiene oportunidad activa en el pipeline "${cfg.pipeline.name}". ` +
-        `Continúa la conversación normalmente sin mencionar este error.`,
-    });
+    return JSON.stringify({ error: 'no_opportunity' });
   }
 
   let chosen = opps[0];
@@ -606,32 +621,30 @@ async function handleMoverAEtapa(
   // solo mueve el código, ej. al agendar o escalar — `when: "AUTO: ..."` en
   // bot.config.yaml). Evita que el bot "retroceda" el pipeline solo porque
   // el contacto le sigue escribiendo después de haber cerrado el ciclo.
+  //
+  // La excepción es la etapa de "perdido" de los follow-ups (No contestó): si
+  // la paciente vuelve a escribir, sí regresa a la conversación y la
+  // oportunidad se reabre.
   const etapaActual = cfg.pipeline.stages.find((s) => s.id === chosen.pipelineStageId);
   const esAuto = (s?: { when: string }) => s?.when.trim().toUpperCase().startsWith('AUTO');
-  if (esAuto(etapaActual) && !esAuto(target)) {
+  const vuelveDePerdido = !!etapaActual && etapaActual.name === cfg.follow_ups?.lost_stage;
+  if (esAuto(etapaActual) && !esAuto(target) && !vuelveDePerdido) {
     console.log(
       `[tool:mover_a_etapa] bloqueado regreso a etapa manual | contact=${contactId} etapa_actual="${etapaActual!.name}" target="${target.name}"`
     );
-    return JSON.stringify({
-      ok: true,
-      blocked: true,
-      message: `El contacto ya está en "${etapaActual!.name}" (etapa automática), no se mueve hacia atrás a "${target.name}". Continúa la conversación normalmente sin mencionar esto.`,
-    });
+    return JSON.stringify({ ok: true, blocked: true });
   }
 
   try {
-    await moveOpportunityToStage(chosen.id, target.id);
+    await moveOpportunityToStage(chosen.id, target.id, 'open');
     console.log(
-      `[tool:mover_a_etapa] OK | contact=${contactId} opp=${chosen.id} ` +
+      `[tool:mover_a_etapa] OK${vuelveDePerdido ? ' (reabierta, venía de perdido)' : ''} | contact=${contactId} opp=${chosen.id} ` +
         `from=${chosen.pipelineStageId} to=${target.id} (${target.name})`
     );
     return JSON.stringify({ ok: true, moved_to: target.name });
   } catch (err) {
     console.error(`[tool:mover_a_etapa] API error: ${(err as Error).message}`);
-    return JSON.stringify({
-      error: 'api_error',
-      message: 'No se pudo mover la oportunidad. Continúa la conversación normalmente.',
-    });
+    return JSON.stringify({ error: 'api_error' });
   }
 }
 

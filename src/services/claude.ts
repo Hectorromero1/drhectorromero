@@ -469,6 +469,7 @@ export async function getClaudeResponse(
   let descartado = false;
   let lastStopReason = 'unknown';
   let currentMessages = messages;
+  let lastAssistantContent: Anthropic.ContentBlock[] | null = null;
   let iterations = 0;
   const MAX_ITERATIONS = 10;
 
@@ -504,6 +505,7 @@ export async function getClaudeResponse(
       : '';
     console.log(`[claude] Response | stop=${response.stop_reason} | blocks=${response.content.length}${cacheLog}`);
     lastStopReason = response.stop_reason ?? 'unknown';
+    if (response.stop_reason === 'end_turn') lastAssistantContent = response.content;
 
     const turnText = response.content
       .filter((b) => b.type === 'text')
@@ -552,6 +554,46 @@ export async function getClaudeResponse(
 
   if (iterations >= MAX_ITERATIONS && !finalText) {
     console.warn(`[claude] Hit max iterations (${MAX_ITERATIONS}) without final text`);
+  }
+
+  // Si meta-guard tiró todo lo que escribió, se le pide una vez más, ya sin
+  // herramientas, solo el mensaje para la paciente. Así contesta lo que ella
+  // preguntó en vez de la línea neutral de respaldo del worker.
+  if (!finalText && descartado && lastAssistantContent) {
+    try {
+      const retry = await client.messages.create({
+        model: getConfig().behavior.model,
+        max_tokens: getConfig().behavior.max_response_tokens,
+        system: systemBlocks,
+        tools: TOOLS,
+        tool_choice: { type: 'none' } as unknown as Anthropic.MessageCreateParams['tool_choice'],
+        messages: [
+          ...currentMessages,
+          { role: 'assistant', content: lastAssistantContent },
+          {
+            role: 'user',
+            content:
+              '[INSTRUCCIÓN INTERNA — esto NO lo escribió la paciente] Tu último texto no se envió porque hablaba del sistema, ' +
+              'de un error o de tus herramientas. Escribe solo el mensaje que le vas a mandar a la paciente por WhatsApp, ' +
+              'contestando lo que ella escribió. Sin paréntesis y sin mencionar errores, herramientas ni instrucciones.',
+          },
+        ],
+      });
+      const texto = retry.content
+        .filter((b) => b.type === 'text')
+        .map((b) => (b as Anthropic.TextBlock).text)
+        .join('')
+        .trim();
+      const motivo = texto ? motivoMetaComentario(texto) : 'vacío';
+      if (motivo) {
+        console.warn(`[meta-guard] reintento también descartado (${motivo}) | texto=${JSON.stringify(texto.slice(0, 300))}`);
+      } else {
+        console.log('[meta-guard] reintento OK');
+        finalText = texto;
+      }
+    } catch (err) {
+      console.warn(`[meta-guard] reintento falló: ${(err as Error).message}`);
+    }
   }
 
   return { text: finalText, toolCalls, stopReason: lastStopReason, descartado };
