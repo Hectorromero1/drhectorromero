@@ -300,9 +300,10 @@ video_resources:
     url: "https://www.instagram.com/reel/DcKkH9cRHZQ/?igsh=MWMyeXp0N2ppMTM5aA=="
 
 custom_fields:
-  # Desde el 15-oct-2026 el bot solo PIDE tres datos: nombre completo, edad y
-  # ciudad desde donde escribe (Domicilio). El resto de los campos se llenan
-  # solo si la paciente los da por su cuenta; lo demás lo completa Alexandra. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
+  # Desde el 4-nov-2026 el bot vuelve a pedir la ficha larga: nombre completo,
+  # procedimiento, edad, ciudad (Domicilio), correo y cómo se enteró. Los días u
+  # horarios NO se piden (regla del 22-oct): solo se guardan si la paciente los
+  # dice por su cuenta. "Ciudad" (Q4iuXPJwWcJ1XO2L12Op) se creó en
   # una primera pasada y quedó sin usar, la reemplazó "Domicilio" — se puede
   # borrar a mano en GHL si se quiere, no se usa desde este archivo.
   fields:
@@ -320,22 +321,22 @@ custom_fields:
       when: "En cuanto tengas suficiente contexto para clasificar, guarda 'caliente' (lista para consulta, quiere agendar o ya pidió hablar con alguien), 'tibia' (interesada, hace preguntas concretas pero no ha pedido agendar) o 'fría' (apenas explorando, preguntas muy generales). Puedes actualizarlo si cambia durante la conversación."
     - id: LjVReDNX4OKduemrfaRb
       name: Edad
-      when: "Cuando la paciente diga su edad. Es uno de los tres datos obligatorios de Fase 3, se pide directo."
+      when: "Cuando la paciente diga su edad. Es uno de los datos obligatorios de Fase 3, se pide directo."
     - id: Blgx1nsrfUQLI9W0kz4W
       name: Fecha de nacimiento
       when: "Si la paciente la comparte (no es obligatorio pedirla si ya tienes la edad aproximada)."
     - id: A0Emi9BguJ5lRqouH88m
       name: Domicilio
-      when: "Cuando la paciente diga desde qué ciudad escribe. Es uno de los tres datos obligatorios de Fase 3; basta con la ciudad, no pidas la dirección."
+      when: "Cuando la paciente diga desde qué ciudad escribe. Es uno de los datos obligatorios de Fase 3; basta con la ciudad, no pidas la dirección."
     - id: VuwBhPo6SqI76i2SA6RY
       name: Correo electrónico (paciente)
-      when: "Si la paciente lo comparte, sobre todo relevante para valoración virtual (ahí se manda el link de pago)."
+      when: "Cuando la paciente dé su correo. Es uno de los datos obligatorios de Fase 3, se pide directo (en la valoración virtual ahí se manda el link de pago)."
     - id: NbA9yxTIFCJDgha2PHSC
       name: Ocupación
       when: "Si sale de forma natural en la conversación, no la preguntes directo si no viene al caso."
     - id: 4GrjkJghJibn3GAXvqDy
       name: Recomendado por
-      when: "Cuando la paciente mencione cómo se enteró del consultorio (si fue red social, especifica cuál)."
+      when: "Cuando la paciente diga cómo se enteró del consultorio (si fue red social, especifica cuál). Es uno de los datos obligatorios de Fase 3, se pide directo."
     - id: zBaLsSgeJWt8iiwx5A9f
       name: Preferencia de horario y días
       when: "Solo si la paciente dice por su cuenta qué días u horarios le acomodan (nunca se lo preguntes). Guarda exactamente lo que diga, aunque sea vago o la fecha no exista, sin cuestionarlo ni pedir que lo confirme. Nunca detiene la escalación."
