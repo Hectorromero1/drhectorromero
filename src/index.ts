@@ -6,7 +6,7 @@ import { timingSafeEqual } from 'crypto';
 import { webhookRouter } from './routes/webhook';
 import { startMessageWorker } from './workers/messageWorker';
 import { startFollowUpWorker } from './workers/followUpWorker';
-import { boss, barrerPendientes } from './queue';
+import { boss, barrerPendientes, QUEUE_NAME } from './queue';
 import { db } from './db/client';
 import { SCHEMA_SQL } from './db/schema';
 import { getConfig } from './config';
@@ -81,6 +81,16 @@ async function main() {
   await db.query(SCHEMA_SQL);
   console.log('[db] Migrations applied');
 
+  // Sin este listener, un error de conexión de pg-boss (ej. "Connection
+  // terminated due to connection timeout") se emite como 'error' sin nadie
+  // escuchando y tumba el proceso. Railway lo reinicia, pero solo unas veces
+  // seguidas (restartPolicyMaxRetries): una caída de la base de unos minutos
+  // podía dejar el bot apagado hasta que alguien lo prendiera a mano (E172).
+  // Con el listener, pg-boss loguea y el worker sigue en el siguiente ciclo.
+  boss.on('error', (err) => {
+    console.error('[queue] pg-boss error:', err.message);
+  });
+
   await boss.start();
   console.log('[queue] pg-boss started');
 
@@ -95,6 +105,28 @@ async function main() {
   setInterval(() => {
     barrerPendientes((sql, params) => db.query(sql, params)).catch(() => {});
   }, 60_000);
+
+  // Perro guardián (E172): si hay mensajes que ya debían procesarse hace más
+  // de 10 minutos y siguen sin tomar, el worker está muerto aunque el proceso
+  // viva. Se sale con código 1 para que Railway reinicie (restartPolicy
+  // ON_FAILURE). Mejor un reinicio que un fin de semana mudo con /health en verde.
+  setInterval(async () => {
+    try {
+      const r = await db.query(
+        `SELECT count(*)::int AS n FROM pgboss.job
+          WHERE name = $1 AND state IN ('created', 'retry')
+            AND startafter < now() - interval '10 minutes'`,
+        [QUEUE_NAME]
+      );
+      const atorados = Number(r.rows[0]?.n ?? 0);
+      if (atorados > 0) {
+        console.error(`[watchdog] ${atorados} mensaje(s) sin procesar hace más de 10 min — el worker no está tomando la cola, se reinicia el proceso`);
+        process.exit(1);
+      }
+    } catch (err) {
+      console.warn(`[watchdog] no se pudo revisar la cola: ${(err as Error).message}`);
+    }
+  }, 5 * 60_000);
 
   app.listen(PORT, () => {
     console.log(`[server] ${config.bot.name} listening on port ${PORT}`);
