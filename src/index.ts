@@ -6,7 +6,7 @@ import { timingSafeEqual } from 'crypto';
 import { webhookRouter } from './routes/webhook';
 import { startMessageWorker } from './workers/messageWorker';
 import { startFollowUpWorker } from './workers/followUpWorker';
-import { boss } from './queue';
+import { boss, barrerPendientes } from './queue';
 import { db } from './db/client';
 import { SCHEMA_SQL } from './db/schema';
 import { getConfig } from './config';
@@ -90,6 +90,11 @@ async function main() {
   if (config.follow_ups) {
     await startFollowUpWorker(1);
   }
+
+  // Barredor de mensajes que se quedaron sin turno (E150), cada minuto.
+  setInterval(() => {
+    barrerPendientes((sql, params) => db.query(sql, params)).catch(() => {});
+  }, 60_000);
 
   app.listen(PORT, () => {
     console.log(`[server] ${config.bot.name} listening on port ${PORT}`);

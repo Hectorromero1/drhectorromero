@@ -702,7 +702,7 @@ export async function startMessageWorker(concurrency = 5) {
         conversation = inserted.rows[0];
       }
 
-      const messageToProcess = conversation.pending_message ?? message;
+      let messageToProcess: string = conversation.pending_message ?? message;
       if (!messageToProcess) {
         console.log(`[worker] Skipped duplicate | contact=${contactId}`);
         return;
@@ -766,13 +766,52 @@ export async function startMessageWorker(concurrency = 5) {
       let replyText: string;
       let toolCalls: Array<{ toolName: string }>;
       try {
-        const result = await getClaudeResponse(
+        let result = await getClaudeResponse(
           history,
           messageForClaude,
           async (toolName, input) => handleTool(toolName, input, contactId),
           inboundChannel,
           attachmentBlocks
         );
+
+        // Mensajes que llegaron MIENTRAS se generaba la respuesta (E150, caso
+        // real 7/11/2026): la paciente mandó ciudad, edad y correo en tres
+        // mensajes; el turno tomó solo la ciudad y le volvió a pedir la edad y
+        // el correo que acababa de mandar. Antes de enviar, si hay pendientes
+        // nuevos sin adjuntos, se toman y se rehace el turno con todo junto;
+        // la respuesta vieja nunca sale. No se rehace si ya escaló (Alexandra
+        // ya va en camino) ni más de dos veces; lo que quede lo levanta el
+        // barredor de pendientes.
+        for (let rehechos = 0; rehechos < 2; rehechos++) {
+          if (result.toolCalls.some((t) => t.toolName === 'escalar_a_humano')) break;
+          const nuevos = await db.query<{ texto: string }>(
+            `WITH prev AS (
+               SELECT pending_message AS texto, pending_attachments
+               FROM conversations WHERE id = $1 FOR UPDATE
+             )
+             UPDATE conversations c
+             SET pending_message = NULL, pending_at = NULL
+             FROM prev
+             WHERE c.id = $1 AND prev.texto IS NOT NULL AND prev.texto <> ''
+               AND COALESCE(jsonb_array_length(prev.pending_attachments), 0) = 0
+             RETURNING prev.texto`,
+            [conversation.id]
+          );
+          const texto = nuevos.rows[0]?.texto;
+          if (!texto) break;
+          console.log(`[worker] llegaron mensajes mientras se generaba la respuesta — se rehace el turno | contact=${contactId}`);
+          messageToProcess = `${messageToProcess}\n${texto}`;
+          messageForClaude = `${messageForClaude}\n${texto}`;
+          const previas = result.toolCalls;
+          result = await getClaudeResponse(
+            history,
+            messageForClaude,
+            async (toolName, input) => handleTool(toolName, input, contactId),
+            inboundChannel,
+            attachmentBlocks
+          );
+          result = { ...result, toolCalls: [...previas, ...result.toolCalls] };
+        }
         replyText = result.text;
         toolCalls = result.toolCalls;
 
