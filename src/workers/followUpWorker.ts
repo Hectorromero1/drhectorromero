@@ -154,6 +154,11 @@ async function handleFollowUp(data: FollowUpJobData): Promise<void> {
 
   console.log(`[follow-up] fired | contact=${contactId} attempt=${attempt}`);
 
+  if (!fu.send_messages) {
+    console.log(`[follow-up] apagado (send_messages: false) | contact=${contactId}`);
+    return;
+  }
+
   // Blocklist: jamás un proactivo a un contacto bloqueado (ver src/blocklist.ts).
   if (await contactoBloqueadoAsync(contactId)) {
     console.log(`[follow-up] bloqueado — contacto en blocklist | contact=${contactId}`);

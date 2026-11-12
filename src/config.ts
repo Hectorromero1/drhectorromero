@@ -93,6 +93,9 @@ const FollowUpsSchema = z
     // Mínimo de horas entre follow-ups de tandas distintas (E186): que el
     // contacto conteste "gracias" no le compra otro recordatorio.
     min_gap_hours: z.number().positive().default(48),
+    // false = no sale ningún mensaje de seguimiento (los jobs programados se
+    // descartan al dispararse), pero el pase a lost_stage sigue corriendo.
+    send_messages: z.boolean().default(true),
     // Textos predefinidos de cada follow-up — uno por intento de la cadencia.
     // Soportan {nombre} (primer nombre del contacto, si se conoce).
     messages: z.array(z.string().min(1)).min(1).max(3),

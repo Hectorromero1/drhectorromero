@@ -154,6 +154,10 @@ follow_ups:
   # contacto (aunque sea "gracias") programa una tanda nueva; sin este tope a
   # una paciente le salieron 3 recordatorios en 18h (E186, 17-oct-2026).
   min_gap_hours: 48
+  # APAGADO el 11-nov-2026: WhatsApp avisó que la cuenta podría restringirse
+  # por spam. Con false no sale el mensaje de las +3h, pero el pase a
+  # "No contestó" a las 22h sigue igual. Para reactivar: true.
+  send_messages: false
   # Respaldo: solo se usa si la generación contextual con Claude falla. En los
   # logs de producción no ha hecho falta ni una vez (los 29 envíos salieron
   # `generado contextual`), pero se queda como red.
