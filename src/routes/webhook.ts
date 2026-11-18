@@ -8,6 +8,12 @@ import { evaluarLoop, EstadoContacto } from '../loop-guard';
 import { cancelarFollowUpsPendientes } from '../services/follow-up';
 import { getConfig } from '../config';
 
+const NO_DISPONIBLE_SRC =
+  "this message is currently unavailable\\.?|waiting for this message\\.?(?: this may take a while\\.?)?|este mensaje no est[aá] disponible(?: en este momento)?\\.?|esperando (?:este|el) mensaje\\.?(?: esto puede tardar un poco\\.?)?";
+const MENSAJE_NO_DISPONIBLE = new RegExp(NO_DISPONIBLE_SRC, 'i');
+const MENSAJE_NO_DISPONIBLE_G = new RegExp(NO_DISPONIBLE_SRC, 'gi');
+export const NOTA_NO_DISPONIBLE = '[el contacto mandó un mensaje que WhatsApp no dejó leer]';
+
 export const webhookRouter = Router();
 
 /**
@@ -105,6 +111,35 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
       let attachmentUrl: string | null = null;
       let attachmentKind: string | null = null;
       let textForClaude = messageText;
+
+      // WhatsApp a veces no le entrega el mensaje a GHL y en su lugar llega este
+      // aviso como si fuera texto (en el teléfono del consultorio sí se ve el
+      // mensaje real). Pasó con "Hola! Quiero agendar una cita" de un anuncio y el
+      // bot le contestó que "hubo un problema con su mensaje", de tú y con viñetas
+      // (E196). Se resuelve aquí y no en el prompt: con una nota para el modelo,
+      // Haiku a veces filtraba su razonamiento o ignoraba el texto que venía junto.
+      //   - si vino con más texto → se quita el aviso y se contesta el resto
+      //   - si ya hay un mensaje en espera (ráfaga) → se descarta, el otro se contesta
+      //   - conversación nueva → se trata como un "Hola" (saludo de bienvenida)
+      //   - a media conversación → el bot pide que se lo repitan
+      if (textForClaude && MENSAJE_NO_DISPONIBLE.test(textForClaude)) {
+        const resto = textForClaude.replace(MENSAJE_NO_DISPONIBLE_G, '').trim();
+        let caso = 'con_texto';
+        if (resto) {
+          textForClaude = resto;
+        } else {
+          const prev = await db.query(
+            `SELECT COALESCE(jsonb_array_length(messages), 0) AS n, pending_message FROM conversations WHERE contact_id = $1`,
+            [contactId]
+          );
+          const fila = prev.rows[0];
+          if (fila?.pending_message) caso = 'en_rafaga';
+          else if (!fila || Number(fila.n) === 0) { caso = 'nueva'; textForClaude = 'Hola'; }
+          else { caso = 'a_media'; textForClaude = NOTA_NO_DISPONIBLE; }
+        }
+        console.log(`[webhook:${channel}] Mensaje no disponible de WhatsApp | contact=${contactId} caso=${caso}`);
+        if (caso === 'en_rafaga') return;
+      }
 
       const info = await getLatestMessageInfo(contactId);
       const att = info?.attachment;
