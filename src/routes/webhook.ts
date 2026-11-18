@@ -116,7 +116,7 @@ function makeGhlWebhookHandler(channel: GhlChannel) {
       // aviso como si fuera texto (en el teléfono del consultorio sí se ve el
       // mensaje real). Pasó con "Hola! Quiero agendar una cita" de un anuncio y el
       // bot le contestó que "hubo un problema con su mensaje", de tú y con viñetas
-      // (E196). Se resuelve aquí y no en el prompt: con una nota para el modelo,
+      // (E225). Se resuelve aquí y no en el prompt: con una nota para el modelo,
       // Haiku a veces filtraba su razonamiento o ignoraba el texto que venía junto.
       //   - si vino con más texto → se quita el aviso y se contesta el resto
       //   - si ya hay un mensaje en espera (ráfaga) → se descarta, el otro se contesta
